@@ -1240,22 +1240,22 @@ fn builtin_export(args: &[Value]) -> SusumuResult<Value> {
 // These functions are immediately available without imports
 // =============================================================================
 
-/// Core add function with overflow protection
+/// Core add function with overflow protection - supports multiple arguments for convergence
 fn builtin_core_add(args: &[Value]) -> SusumuResult<Value> {
-    if args.len() != 2 {
+    if args.is_empty() {
         return Err(SusumuError::runtime_error(
-            "add() expects exactly 2 arguments",
+            "add() expects at least 1 argument",
         ));
     }
 
-    let a = args[0]
-        .as_f64()
-        .ok_or_else(|| SusumuError::runtime_error("First argument must be a number"))?;
-    let b = args[1]
-        .as_f64()
-        .ok_or_else(|| SusumuError::runtime_error("Second argument must be a number"))?;
+    let mut result = 0.0;
+    for (i, arg) in args.iter().enumerate() {
+        let num = arg
+            .as_f64()
+            .ok_or_else(|| SusumuError::runtime_error(&format!("Argument {} must be a number", i + 1)))?;
+        result += num;
+    }
 
-    let result = a + b;
     if result.is_finite() {
         Ok(json!(result))
     } else {

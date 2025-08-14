@@ -1462,7 +1462,7 @@ mod tests {
         let mut interpreter = Interpreter::new();
 
         let result = interpreter.execute(&ast).unwrap();
-        assert_eq!(result, Value::Number(serde_json::Number::from(8)));
+        assert_eq!(result, Value::Number(serde_json::Number::from_f64(8.0).unwrap()));
     }
 
     #[test]
@@ -1473,7 +1473,7 @@ mod tests {
         let mut interpreter = Interpreter::new();
 
         let result = interpreter.execute(&ast).unwrap();
-        assert_eq!(result, Value::Number(serde_json::Number::from(10)));
+        assert_eq!(result, Value::Number(serde_json::Number::from_f64(10.0).unwrap()));
     }
 
     #[test]
