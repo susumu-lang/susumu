@@ -1564,7 +1564,8 @@ mod tests {
 
     #[test]
     fn test_conditional_parsing() {
-        let source = "x -> validate -> i success { result -> return } e { error -> error }";
+        let source =
+            "x -> validate -> i positive { result -> return <- result } e { error <- \"failed\" }";
         let mut lexer = Lexer::new(source);
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);

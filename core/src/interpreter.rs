@@ -1350,7 +1350,16 @@ mod tests {
 
     #[test]
     fn test_conditional_execution() {
-        let source = "5 -> add <- 3 -> i success { result -> print } e { error -> print }";
+        let source = r#"
+        main() {
+            value = 8
+            value -> i positive {
+                "positive" -> print
+            } e {
+                "not positive" -> print
+            }
+        }
+        "#;
         let tokens = Lexer::new(source).tokenize().unwrap();
         let ast = Parser::new(tokens).parse().unwrap();
         let mut interpreter = Interpreter::new();

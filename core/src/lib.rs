@@ -69,10 +69,10 @@ mod tests {
     fn test_success_error_pattern() {
         let code = r#"
         testFunction(x) {
-            x -> validate -> i success {
-                result -> return
+            x -> validate -> i positive {
+                result -> return <- result
             } e {
-                error -> error <- "validation failed"
+                error <- "validation failed"
             }
         }
         "#;
