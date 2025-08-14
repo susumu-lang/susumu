@@ -1,0 +1,217 @@
+// Data Science Module - Analytics, ML, and data processing
+// Import: data_module -> from <- import <- (dataframe, ml, stats, viz)
+
+// DataFrame operations
+createDataFrame(data, columns) {
+    (data, columns) -> constructDataFrame -> return
+}
+
+readCsv(filePath, options) {
+    (filePath, options) -> loadCsvData -> return
+}
+
+writeCsv(dataFrame, filePath, options) {
+    (dataFrame, filePath, options) -> saveCsvData -> return
+}
+
+selectColumns(dataFrame, columns) {
+    (dataFrame, columns) -> filterColumns -> return
+}
+
+filterRows(dataFrame, predicate) {
+    (dataFrame, predicate) -> filterDataFrameRows -> return
+}
+
+sortBy(dataFrame, column, ascending) {
+    (dataFrame, column, ascending) -> sortDataFrame -> return
+}
+
+groupBy(dataFrame, columns) {
+    (dataFrame, columns) -> groupDataFrame -> return
+}
+
+aggregate(groupedDataFrame, operations) {
+    (groupedDataFrame, operations) -> performAggregation -> return
+}
+
+join(dataFrame1, dataFrame2, joinType, keys) {
+    (dataFrame1, dataFrame2, joinType, keys) -> joinDataFrames -> return
+}
+
+// Statistical analysis
+describe(dataFrame) {
+    dataFrame -> generateDescriptiveStats -> return
+}
+
+correlation(dataFrame, method) {
+    (dataFrame, method) -> calculateCorrelation -> return
+}
+
+covariance(dataFrame) {
+    dataFrame -> calculateCovariance -> return
+}
+
+// Hypothesis testing
+tTest(sample1, sample2, options) {
+    (sample1, sample2, options) -> performTTest -> return
+}
+
+chiSquareTest(observed, expected) {
+    (observed, expected) -> performChiSquareTest -> return
+}
+
+anovaTest(groups) {
+    groups -> performAnovaTest -> return
+}
+
+// Machine Learning - Supervised
+linearRegression(features, target, options) {
+    (features, target, options) -> trainLinearRegression -> return
+}
+
+logisticRegression(features, target, options) {
+    (features, target, options) -> trainLogisticRegression -> return
+}
+
+randomForest(features, target, options) {
+    (features, target, options) -> trainRandomForest -> return
+}
+
+svm(features, target, options) {
+    (features, target, options) -> trainSvm -> return
+}
+
+neuralNetwork(features, target, architecture) {
+    (features, target, architecture) -> trainNeuralNetwork -> return
+}
+
+// Machine Learning - Unsupervised
+kmeans(data, clusters, options) {
+    (data, clusters, options) -> performKMeans -> return
+}
+
+hierarchicalClustering(data, linkage) {
+    (data, linkage) -> performHierarchicalClustering -> return
+}
+
+pca(data, components) {
+    (data, components) -> performPca -> return
+}
+
+dbscan(data, eps, minSamples) {
+    (data, eps, minSamples) -> performDbscan -> return
+}
+
+// Model evaluation
+trainTestSplit(data, testSize, randomState) {
+    (data, testSize, randomState) -> splitTrainTest -> return
+}
+
+crossValidate(model, data, folds) {
+    (model, data, folds) -> performCrossValidation -> return
+}
+
+evaluate(model, testData, metrics) {
+    (model, testData, metrics) -> evaluateModel -> return
+}
+
+// Feature engineering
+scaleFeatures(data, method) {
+    (data, method) -> performFeatureScaling -> return
+}
+
+encodeCategories(data, columns, method) {
+    (data, columns, method) -> encodeCategoricalFeatures -> return
+}
+
+selectFeatures(data, target, method, k) {
+    (data, target, method, k) -> performFeatureSelection -> return
+}
+
+createPolynomialFeatures(data, degree) {
+    (data, degree) -> generatePolynomialFeatures -> return
+}
+
+// Time series analysis
+timeSeries(data, dateColumn) {
+    (data, dateColumn) -> createTimeSeries -> return
+}
+
+decompose(timeSeries, method) {
+    (timeSeries, method) -> decomposeTimeSeries -> return
+}
+
+forecast(timeSeries, periods, method) {
+    (timeSeries, periods, method) -> generateForecast -> return
+}
+
+detectAnomalies(timeSeries, method) {
+    (timeSeries, method) -> detectTimeSeriesAnomalies -> return
+}
+
+// Data visualization
+plot(data, chartType, options) {
+    (data, chartType, options) -> createVisualization -> return
+}
+
+histogram(data, bins, options) {
+    (data, bins, options) -> createHistogram -> return
+}
+
+scatterPlot(x, y, options) {
+    (x, y, options) -> createScatterPlot -> return
+}
+
+boxPlot(data, groupBy, options) {
+    (data, groupBy, options) -> createBoxPlot -> return
+}
+
+heatmap(data, options) {
+    (data, options) -> createHeatmap -> return
+}
+
+// Data cleaning
+removeDuplicates(dataFrame) {
+    dataFrame -> eliminateDuplicateRows -> return
+}
+
+fillMissingValues(dataFrame, strategy, columns) {
+    (dataFrame, strategy, columns) -> imputeMissingValues -> return
+}
+
+removeOutliers(dataFrame, method, columns) {
+    (dataFrame, method, columns) -> eliminateOutliers -> return
+}
+
+validateData(dataFrame, rules) {
+    (dataFrame, rules) -> performDataValidation -> return
+}
+
+// Big data operations
+createSparkSession(config) {
+    config -> initializeSparkSession -> return
+}
+
+readParquet(sparkSession, filePath) {
+    (sparkSession, filePath) -> loadParquetData -> return
+}
+
+writeParquet(sparkSession, dataFrame, filePath) {
+    (sparkSession, dataFrame, filePath) -> saveParquetData -> return
+}
+
+distributedCompute(sparkSession, operation, data) {
+    (sparkSession, operation, data) -> performDistributedOperation -> return
+}
+
+// Export data science functions
+(createDataFrame, readCsv, writeCsv, selectColumns, filterRows, sortBy,
+ groupBy, aggregate, join, describe, correlation, covariance, tTest,
+ chiSquareTest, anovaTest, linearRegression, logisticRegression,
+ randomForest, svm, neuralNetwork, kmeans, hierarchicalClustering, pca,
+ dbscan, trainTestSplit, crossValidate, evaluate, scaleFeatures,
+ encodeCategories, selectFeatures, createPolynomialFeatures, timeSeries,
+ decompose, forecast, detectAnomalies, plot, histogram, scatterPlot,
+ boxPlot, heatmap, removeDuplicates, fillMissingValues, removeOutliers,
+ validateData, createSparkSession, readParquet, writeParquet,
+ distributedCompute) -> export

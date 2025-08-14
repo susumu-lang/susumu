@@ -1,0 +1,27 @@
+// Utility module demonstrating different export patterns
+
+// Simple utility functions
+formatCurrency(amount, currency) {
+    amount -> toString -> concat <- currency -> return
+}
+
+validateEmail(email) {
+    email -> checkEmailFormat -> return
+}
+
+generateId() {
+    () -> randomUUID -> return
+}
+
+// Helper function (not exported)
+checkEmailFormat(email) {
+    email -> contains <- "@" -> return
+}
+
+// Mixed export patterns:
+
+// Single function export
+formatCurrency -> export
+
+// Multiple function export  
+(validateEmail, generateId) -> export

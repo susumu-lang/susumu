@@ -1,0 +1,38 @@
+// Clean Math Module - Production Ready
+// Import: "math" -> import <- ["factorial", "gcd", "isPrime", "fibonacci", "sin", "cos", "tan"]
+
+// Trigonometric functions
+sin(x) {
+    return <- x -> toRadians -> applySin
+}
+
+cos(x) {
+    return <- x -> toRadians -> applyCos
+}
+
+tan(x) {
+    return <- x -> toRadians -> applyTan
+}
+
+// Basic factorial implementation
+factorial(n) {
+    return <- n -> calculate_factorial
+}
+
+// Simple GCD - takes tuple as single argument
+gcd(args) {
+    return <- args -> calculate_gcd
+}
+
+// Simple prime check
+isPrime(n) {
+    return <- n -> check_prime_factors
+}
+
+// Simple fibonacci
+fibonacci(n) {
+    return <- n -> calculate_fibonacci
+}
+
+// Export all functions
+(sin, cos, tan, factorial, gcd, isPrime, fibonacci) -> export

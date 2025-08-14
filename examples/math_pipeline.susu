@@ -1,0 +1,30 @@
+// Mathematical Processing Pipeline
+// Demonstrates function composition with arrow-flow syntax
+
+main() {
+    // Simple mathematical pipeline
+    result = 5 -> double -> addTen -> square
+    result -> print  // Output: 400
+    
+    // Step-by-step visualization
+    step1 = 5 -> double       // 10
+    step2 = step1 -> addTen   // 20  
+    step3 = step2 -> square   // 400
+    
+    "Step 1 (double): " -> concat <- step1 -> print
+    "Step 2 (add 10): " -> concat <- step2 -> print  
+    "Step 3 (square): " -> concat <- step3 -> print
+}
+
+// Mathematical function definitions
+double(x) { 
+    x -> multiply <- 2 
+}
+
+addTen(x) { 
+    x -> add <- 10 
+}
+
+square(x) { 
+    x -> multiply <- x 
+}

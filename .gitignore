@@ -22,8 +22,10 @@ vscode-extension/out/
 vscode-extension/*.vsix
 vscode-extension/.vscode-test/
 
-# Development artifacts
-*.susu
+# Development artifacts (but keep stdlib/ and examples/)
+test_*.susu
+debug_*.susu
+simple_*.susu
 *.tmp
 *.log
 bench_*

@@ -1,0 +1,20 @@
+// Clean String Module - Production Ready
+// Import: "string" -> import <- ["split", "join", "toTitleCase"]
+
+// String split function
+split(text) {
+    return <- text -> split_string <- ","
+}
+
+// String join function
+join(array) {
+    return <- array -> join_array <- "-"
+}
+
+// Title case function
+toTitleCase(text) {
+    return <- text -> to_title_case
+}
+
+// Export all functions
+(split, join, toTitleCase) -> export

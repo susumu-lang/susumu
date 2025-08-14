@@ -1,0 +1,15 @@
+// Hello World - Your first Susumu program
+// Demonstrates basic arrow-flow syntax
+
+main() {
+    // Simple arrow flow: data flows from left to right
+    "Hello, Susumu!" -> print
+    
+    // Arrow operations: data transforms through functions
+    greeting = "Hello" -> concat <- ", World!"
+    greeting -> print
+    
+    // Function composition with arrows
+    result = 5 -> add <- 10 -> multiply <- 2
+    result -> print  // Output: 30
+}

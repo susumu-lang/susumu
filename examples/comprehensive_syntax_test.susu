@@ -1,0 +1,150 @@
+// Comprehensive Syntax Test for Susumu v0.1.0
+// Tests all current language features with proper arrow-flow patterns
+
+main() {
+    // ========================================
+    // BASIC DATA TYPES & ASSIGNMENTS
+    // ========================================
+    
+    // Numbers and strings
+    count = 42
+    pi = 3.14159
+    name = "Alice"
+    greeting = "Hello, Susumu!"
+    
+    // Arrays - single line and multi-line
+    numbers = [1, 2, 3, 4, 5]
+    languages = [
+        "Rust",
+        "Susumu", 
+        "Python",
+        "JavaScript"
+    ]
+    
+    // Objects - single line and multi-line
+    user = {name: "Bob", age: 30, active: true}
+    config = {
+        database: {
+            host: "localhost",
+            port: 5432,
+            ssl: true
+        },
+        cache: {
+            enabled: true,
+            ttl: 300,
+            maxSize: 1024
+        },
+        features: [
+            "authentication",
+            "logging", 
+            "metrics"
+        ]
+    }
+    
+    // ========================================
+    // ARROW OPERATIONS
+    // ========================================
+    
+    // Basic arrow chains
+    result1 = 5 -> add <- 10 -> multiply <- 2
+    result2 = "hello" -> concat <- " world" -> to_upper
+    
+    // Array operations  
+    firstNumber = numbers -> first
+    lastNumber = numbers -> last
+    sortedNumbers = numbers -> sort -> reverse
+    
+    // Function composition
+    processed = count -> double -> addTen -> square
+    
+    // ========================================
+    // COMPLEX DATA STRUCTURES
+    // ========================================
+    
+    // Nested objects with arrays
+    application = {
+        metadata: {
+            name: "Susumu App",
+            version: "0.1.0",
+            authors: ["Susumu Team"]
+        },
+        dependencies: [
+            {name: "serde", version: "1.0"},
+            {name: "tokio", version: "1.0"}
+        ],
+        settings: {
+            debug: true,
+            workers: 4,
+            timeout: 30000
+        }
+    }
+    
+    // ========================================
+    // CONTROL FLOW
+    // ========================================
+    
+    // Conditional processing
+    user -> processUser <- config -> i success {
+        user -> logSuccess -> notify
+    } e {
+        user -> logError -> handleFailure
+    }
+    
+    // ========================================
+    // OUTPUT RESULTS
+    // ========================================
+    
+    // Display results
+    result1 -> print
+    result2 -> print
+    firstNumber -> print
+    application -> print
+}
+
+// ========================================
+// FUNCTION DEFINITIONS
+// ========================================
+
+double(x) {
+    x -> multiply <- 2
+}
+
+addTen(x) {
+    x -> add <- 10
+}
+
+square(x) {
+    x -> multiply <- x
+}
+
+processUser(user, config) {
+    // Enhanced user with processing timestamp
+    enhanced = {
+        id: user.id,
+        name: user.name,
+        processedAt: "2025-08-14T12:00:00Z",
+        settings: config.settings
+    }
+    
+    return <- enhanced
+}
+
+logSuccess(data) {
+    message = "Success: " -> concat <- data.name
+    message -> print
+}
+
+logError(data) {
+    message = "Error processing: " -> concat <- data.name
+    message -> print
+}
+
+notify(data) {
+    notification = "Notification sent to " -> concat <- data.name
+    notification -> print
+}
+
+handleFailure(data) {
+    failure = "Handling failure for " -> concat <- data.name
+    failure -> print
+}

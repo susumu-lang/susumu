@@ -1,0 +1,51 @@
+// Pattern Matching Examples
+
+// Maybe type example
+getUserData(userId) {
+    userId -> match {
+        "valid_user" -> {
+            "John Doe" -> some
+        }
+        _ -> {
+            none()
+        }
+    }
+}
+
+// Result type example
+processOrder(amount) {
+    "Processing order for amount: " + amount -> success
+}
+
+main() {
+    "=== Maybe Pattern Matching ===" -> print
+    
+    "valid_user" -> getUserData -> match {
+        some <- userData -> {
+            "Found user: " + userData -> print
+        }
+        none -> {
+            "User not found" -> print
+        }
+    }
+    
+    "invalid_user" -> getUserData -> match {
+        some <- userData -> {
+            "Found user: " + userData -> print  
+        }
+        none -> {
+            "User not found" -> print
+        }
+    }
+    
+    "=== Result Pattern Matching ===" -> print
+    
+    100 -> processOrder -> match {
+        success <- message -> {
+            "Success: " + message -> print
+        }
+        error <- err -> {
+            "Error: " + err -> print
+        }
+    }
+}

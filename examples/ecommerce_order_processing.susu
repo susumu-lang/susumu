@@ -1,0 +1,347 @@
+// E-commerce Order Processing System
+// Realistic example showcasing Susumu's strengths in business logic
+
+main() {
+    // Sample order data
+    order = {
+        id: "ORD-2025-001",
+        customerId: "CUST-789",
+        items: [
+            {
+                sku: "LAPTOP-001",
+                name: "MacBook Pro 16\"",
+                price: 2499.99,
+                quantity: 1,
+                category: "electronics"
+            },
+            {
+                sku: "MOUSE-042", 
+                name: "Magic Mouse",
+                price: 99.99,
+                quantity: 2,
+                category: "accessories"
+            }
+        ],
+        shippingAddress: {
+            street: "123 Developer Lane",
+            city: "Tech Valley",
+            state: "CA",
+            zip: "94102",
+            country: "US"
+        },
+        paymentMethod: {
+            type: "credit_card",
+            last4: "4242",
+            brand: "visa"
+        }
+    }
+    
+    // Process the complete order
+    order -> processOrder -> i success {
+        order -> sendConfirmationEmail
+        "Order processed successfully!" -> print
+    } e {
+        order -> handleOrderFailure
+        "Order processing failed" -> print
+    }
+}
+
+// ========================================
+// ORDER PROCESSING PIPELINE
+// ========================================
+
+processOrder(order) {
+    // Step 1: Validate order data
+    order -> validateOrder -> i valid {
+        
+        // Step 2: Check inventory
+        order -> checkInventory -> i available {
+            
+            // Step 3: Calculate totals
+            order -> calculateTotals -> updatedOrder
+            
+            // Step 4: Process payment
+            updatedOrder -> processPayment -> i success {
+                
+                // Step 5: Reserve inventory
+                updatedOrder -> reserveInventory -> i reserved {
+                    
+                    // Step 6: Create shipment
+                    updatedOrder -> createShipment -> i created {
+                        
+                        // Step 7: Update order status
+                        finalOrder = {
+                            id: updatedOrder.id,
+                            status: "confirmed",
+                            total: updatedOrder.total,
+                            trackingNumber: updatedOrder.trackingNumber,
+                            estimatedDelivery: "2025-08-18"
+                        }
+                        
+                        return <- finalOrder
+                        
+                    } e {
+                        error <- {type: "shipment_failed", order: updatedOrder}
+                    }
+                } e {
+                    error <- {type: "inventory_reservation_failed", order: updatedOrder}
+                }
+            } e {
+                error <- {type: "payment_failed", order: updatedOrder}
+            }
+        } e {
+            error <- {type: "insufficient_inventory", order: order}
+        }
+    } e {
+        error <- {type: "validation_failed", order: order}
+    }
+}
+
+// ========================================
+// VALIDATION FUNCTIONS
+// ========================================
+
+validateOrder(order) {
+    // Validate required fields
+    order.id -> checkRequired -> i valid {
+        order.customerId -> checkRequired -> i valid {
+            order.items -> validateItems -> i valid {
+                order.shippingAddress -> validateAddress -> i valid {
+                    return <- {status: "valid", order: order}
+                } e {
+                    error <- "Invalid shipping address"
+                }
+            } e {
+                error <- "Invalid items"
+            }
+        } e {
+            error <- "Missing customer ID"
+        }
+    } e {
+        error <- "Missing order ID"
+    }
+}
+
+validateItems(items) {
+    // Check each item has required fields
+    items -> fe item in items {
+        item.sku -> checkRequired -> i valid {
+            item.price -> checkPositive -> i valid {
+                item.quantity -> checkPositive -> i valid {
+                    continue
+                } e {
+                    error <- "Invalid quantity"
+                }
+            } e {
+                error <- "Invalid price"
+            }
+        } e {
+            error <- "Missing SKU"
+        }
+    }
+    
+    return <- {status: "valid", items: items}
+}
+
+validateAddress(address) {
+    address.street -> checkRequired -> i valid {
+        address.city -> checkRequired -> i valid {
+            address.zip -> checkRequired -> i valid {
+                return <- {status: "valid", address: address}
+            } e {
+                error <- "Missing ZIP code"
+            }
+        } e {
+            error <- "Missing city"
+        }
+    } e {
+        error <- "Missing street address"
+    }
+}
+
+// ========================================
+// BUSINESS LOGIC FUNCTIONS
+// ========================================
+
+checkInventory(order) {
+    // Simulate inventory check
+    order.items -> fe item in items {
+        item.quantity -> checkStock <- item.sku -> i available {
+            continue
+        } e {
+            error <- {sku: item.sku, available: 0}
+        }
+    }
+    
+    return <- {status: "available", order: order}
+}
+
+calculateTotals(order) {
+    // Calculate subtotal
+    subtotal = 0
+    order.items -> fe item in items {
+        itemTotal = item.price -> multiply <- item.quantity
+        subtotal = subtotal -> add <- itemTotal
+    }
+    
+    // Calculate tax (8.5%)
+    tax = subtotal -> multiply <- 0.085
+    
+    // Calculate shipping
+    shipping = order.shippingAddress.country -> calculateShipping
+    
+    // Calculate total
+    total = subtotal -> add <- tax -> add <- shipping
+    
+    // Return updated order
+    updatedOrder = {
+        id: order.id,
+        customerId: order.customerId,
+        items: order.items,
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod,
+        subtotal: subtotal,
+        tax: tax,
+        shipping: shipping,
+        total: total
+    }
+    
+    return <- updatedOrder
+}
+
+processPayment(order) {
+    // Simulate payment processing
+    order.paymentMethod.type -> match {
+        "credit_card" -> {
+            order.total -> chargeCard <- order.paymentMethod -> i success {
+                return <- {status: "success", transactionId: "TXN-789", order: order}
+            } e {
+                error <- {type: "card_declined", order: order}
+            }
+        }
+        "paypal" -> {
+            order.total -> chargePayPal <- order.paymentMethod -> i success {
+                return <- {status: "success", transactionId: "PP-456", order: order}
+            } e {
+                error <- {type: "paypal_failed", order: order}
+            }
+        }
+        _ -> {
+            error <- {type: "unsupported_payment_method", order: order}
+        }
+    }
+}
+
+reserveInventory(order) {
+    order.items -> fe item in items {
+        item -> reserveItem -> i reserved {
+            continue
+        } e {
+            error <- {sku: item.sku, message: "Reservation failed"}
+        }
+    }
+    
+    return <- {status: "reserved", order: order}
+}
+
+createShipment(order) {
+    trackingNumber = "TRACK-" -> concat <- order.id
+    
+    shipment = {
+        orderId: order.id,
+        trackingNumber: trackingNumber,
+        carrier: "FedEx",
+        service: "Ground",
+        address: order.shippingAddress
+    }
+    
+    updatedOrder = {
+        id: order.id,
+        customerId: order.customerId,
+        items: order.items,
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        shipping: order.shipping,
+        total: order.total,
+        trackingNumber: trackingNumber,
+        shipment: shipment
+    }
+    
+    return <- updatedOrder
+}
+
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+checkRequired(value) {
+    value -> i defined {
+        return <- {status: "valid", value: value}
+    } e {
+        error <- "Required field missing"
+    }
+}
+
+checkPositive(value) {
+    value -> i positive {
+        return <- {status: "valid", value: value}
+    } e {
+        error <- "Value must be positive"
+    }
+}
+
+checkStock(sku, quantity) {
+    // Simulate inventory lookup
+    sku -> match {
+        "LAPTOP-001" -> return <- {status: "available", stock: 5}
+        "MOUSE-042" -> return <- {status: "available", stock: 20}
+        _ -> return <- {status: "unavailable", stock: 0}
+    }
+}
+
+calculateShipping(country) {
+    country -> match {
+        "US" -> return <- 9.99
+        "CA" -> return <- 14.99
+        _ -> return <- 24.99
+    }
+}
+
+// ========================================
+// NOTIFICATION FUNCTIONS  
+// ========================================
+
+sendConfirmationEmail(order) {
+    message = "Order confirmation for " -> concat <- order.id
+    message -> print
+    
+    details = "Total: $" -> concat <- order.total -> concat <- " - Tracking: " -> concat <- order.trackingNumber
+    details -> print
+}
+
+handleOrderFailure(error) {
+    failureMessage = "Order failed: " -> concat <- error.type
+    failureMessage -> print
+    
+    error.order.id -> logFailure
+}
+
+logFailure(orderId) {
+    logMessage = "FAILURE LOG - Order ID: " -> concat <- orderId
+    logMessage -> print
+}
+
+// Mock functions for simulation
+chargeCard(amount, paymentMethod) {
+    return <- {status: "success"}
+}
+
+chargePayPal(amount, paymentMethod) {
+    return <- {status: "success"}
+}
+
+reserveItem(item) {
+    return <- {status: "reserved"}
+}

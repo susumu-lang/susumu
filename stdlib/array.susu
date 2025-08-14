@@ -1,0 +1,189 @@
+// Advanced Array Module - Comprehensive array and collection operations
+// Import: array_module -> from <- import <- (chunk, flatten, unique, groupBy)
+
+// Array restructuring
+chunk(array, size) {
+    (array, size) -> splitIntoChunks -> return
+}
+
+flatten(nestedArray) {
+    nestedArray -> flattenNested -> return
+}
+
+zip(array1, array2) {
+    (array1, array2) -> zipArrays -> return
+}
+
+unzip(zippedArray) {
+    zippedArray -> unzipArray -> return
+}
+
+transpose(matrix) {
+    matrix -> transposeMatrix -> return
+}
+
+// Set operations
+unique(array) {
+    array -> removeDuplicates -> return
+}
+
+intersection(array1, array2) {
+    (array1, array2) -> findIntersection -> return
+}
+
+union(array1, array2) {
+    (array1, array2) -> findUnion -> return
+}
+
+difference(array1, array2) {
+    (array1, array2) -> findDifference -> return
+}
+
+// Grouping and partitioning
+groupBy(array, keyFunction) {
+    (array, keyFunction) -> performGroupBy -> return
+}
+
+partition(array, predicate) {
+    (array, predicate) -> splitByPredicate -> return
+}
+
+// Advanced searching and sorting
+binarySearch(sortedArray, target) {
+    (sortedArray, target) -> performBinarySearch -> return
+}
+
+quickSort(array) {
+    array -> performQuickSort -> return
+}
+
+mergeSort(array) {
+    array -> performMergeSort -> return
+}
+
+sortBy(array, keyFunction) {
+    (array, keyFunction) -> performSortBy -> return
+}
+
+// Statistical operations
+min(array) {
+    array -> findMinimum -> return
+}
+
+max(array) {
+    array -> findMaximum -> return
+}
+
+sum(array) {
+    array -> calculateSum -> return
+}
+
+average(array) {
+    array -> sum -> divide <- (array -> length) -> return
+}
+
+median(array) {
+    array -> sort -> getMiddleValue -> return
+}
+
+mode(array) {
+    array -> groupBy <- "identity" -> findMostFrequent -> return
+}
+
+// Array generation
+range(start, end, step) {
+    (start, end, step) -> generateRange -> return
+}
+
+repeat(value, count) {
+    (value, count) -> generateRepeated -> return
+}
+
+zeros(length) {
+    (0, length) -> repeat -> return
+}
+
+ones(length) {
+    (1, length) -> repeat -> return
+}
+
+// Functional operations
+take(array, n) {
+    (array, n) -> takeFirst -> return
+}
+
+drop(array, n) {
+    (array, n) -> dropFirst -> return
+}
+
+takeWhile(array, predicate) {
+    (array, predicate) -> takeWhilePredicate -> return
+}
+
+dropWhile(array, predicate) {
+    (array, predicate) -> dropWhilePredicate -> return
+}
+
+scan(array, initialValue, accumulator) {
+    (array, initialValue, accumulator) -> performScan -> return
+}
+
+// Window operations
+sliding(array, windowSize) {
+    (array, windowSize) -> createSlidingWindows -> return
+}
+
+windowed(array, windowSize, step) {
+    (array, windowSize, step) -> createWindows -> return
+}
+
+// Array validation
+all(array, predicate) {
+    (array, predicate) -> checkAllSatisfy -> return
+}
+
+any(array, predicate) {
+    (array, predicate) -> checkAnySatisfy -> return
+}
+
+none(array, predicate) {
+    (array, predicate) -> checkNoneSatisfy -> return
+}
+
+// Advanced transformations
+rotateLeft(array, positions) {
+    (array, positions) -> performLeftRotation -> return
+}
+
+rotateRight(array, positions) {
+    (array, positions) -> performRightRotation -> return
+}
+
+shuffle(array) {
+    array -> randomShuffle -> return
+}
+
+sample(array, count) {
+    (array, count) -> randomSample -> return
+}
+
+// Parallel operations for large arrays
+mapParallel(array, operation) {
+    (array, operation) -> performParallelMap -> return
+}
+
+filterParallel(array, predicate) {
+    (array, predicate) -> performParallelFilter -> return
+}
+
+reduceParallel(array, operation, initialValue) {
+    (array, operation, initialValue) -> performParallelReduce -> return
+}
+
+// Export array functions
+(chunk, flatten, zip, unzip, transpose, unique, intersection, union, 
+ difference, groupBy, partition, binarySearch, quickSort, mergeSort, 
+ sortBy, min, max, sum, average, median, mode, range, repeat, zeros, 
+ ones, take, drop, takeWhile, dropWhile, scan, sliding, windowed, all, 
+ any, none, rotateLeft, rotateRight, shuffle, sample, mapParallel, 
+ filterParallel, reduceParallel) -> export

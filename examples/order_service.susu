@@ -1,0 +1,37 @@
+// Main order service that imports from payment module
+
+// Import payment functions using arrow-flow syntax
+payment_module -> from <- import <- (processPayment, refundPayment)
+
+processOrder(order) {
+    order -> validateOrder -> calculateTotals -> i valid {
+        // Use imported processPayment function
+        (order, order.paymentMethod) -> processPayment -> i success {
+            order -> fulfillOrder -> sendConfirmation -> return <- orderConfirmation
+        } e {
+            order -> handlePaymentFailure -> return <- paymentFailureResult  
+        }
+    } e {
+        order -> return <- validationError
+    }
+}
+
+cancelOrder(orderId, reason) {
+    orderId -> findOrder -> i found {
+        // Use imported refundPayment function  
+        (orderId, order.amount) -> refundPayment -> i success {
+            orderId -> markCancelled -> return <- cancellationConfirmation
+        } e {
+            orderId -> return <- refundFailureResult
+        }
+    } e {
+        orderId -> return <- orderNotFound
+    }
+}
+
+validateOrder(order) {
+    order -> checkInventory -> checkPricing -> return <- validationResult  
+}
+
+// Export the main service functions
+(processOrder, cancelOrder) -> export

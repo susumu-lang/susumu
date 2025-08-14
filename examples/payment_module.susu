@@ -1,0 +1,24 @@
+// Payment processing module - demonstrates exports with arrow-flow syntax
+
+processPayment(order, paymentMethod) {
+    order -> validatePayment -> chargeCard -> i success {
+        order -> logSuccess -> return <- paymentConfirmation  
+    } e {
+        order -> logFailure -> error <- paymentError
+    }
+}
+
+refundPayment(paymentId, amount) {
+    paymentId -> validateRefund -> processRefund -> i success {
+        paymentId -> logRefund -> return <- refundConfirmation
+    } e {
+        paymentId -> logRefundFailure -> error <- refundError  
+    }
+}
+
+validatePayment(order) {
+    order -> checkCard -> checkBalance -> return <- validationResult
+}
+
+// Export functions using arrow-flow syntax
+(processPayment, refundPayment) -> export

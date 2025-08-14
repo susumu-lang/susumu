@@ -1,0 +1,182 @@
+// Visual Debugging Demo - Showcases Susumu's debugging capabilities
+
+// Complex payment processing with parallel operations
+processPayment(orderData) {
+    "🚀 Starting payment processing pipeline..." -> print
+    
+    // Phase 1: Parallel validation and enrichment
+    orderData -> 
+    validateOrder <-
+    enrichWithDefaults <-
+    calculateTotals ->
+    validatedOrder
+    
+    "✅ Order validated and enriched" -> print
+    
+    // Phase 2: Convergent payment processing (simplified without property access)
+    validatedOrder -> 
+    processPayment <- 
+    "credit_card" <- 
+    100
+    
+    "💳 Payment processing complete" -> print
+    
+    // Phase 3: Result-based conditional flow
+    paymentResult -> match {
+        success <- receipt -> {
+            "✅ Payment successful!" -> print
+            receipt -> 
+            sendConfirmation -> 
+            updateInventory -> 
+            logSuccess -> 
+            return <- success <- "Payment completed successfully"
+        }
+        
+        error <- errorMsg -> {
+            "❌ Payment failed!" -> print
+            errorMsg -> 
+            logError -> 
+            sendFailureNotification -> 
+            initiateRefund ->
+            return <- error <- "Payment failed: " + errorMsg
+        }
+    }
+}
+
+// Maybe-based user lookup with error handling
+findUser(userId) {
+    "🔍 Looking up user: " + userId -> print
+    
+    userId -> validateUserId -> i valid {
+        userId -> lookupInDatabase -> i found {
+            user -> {
+                "👤 User found: " + user.name -> print
+                user -> return <- some <- user
+            }
+        } e {
+            "❓ User not found in database" -> print
+            return <- none
+        }
+    } e {
+        "⚠️ Invalid user ID format" -> print
+        return <- none
+    }
+}
+
+// Complex data pipeline demonstrating convergence patterns
+processUserOrder(userId, orderData) {
+    "📦 Processing order for user: " + userId -> print
+    
+    // Parallel user lookup and order preparation
+    userId -> findUser <- orderData -> prepareOrder -> (user, preparedOrder)
+    
+    // Handle the Maybe result from user lookup
+    user -> match {
+        some <- validUser -> {
+            "👍 Valid user found, proceeding with order" -> print
+            
+            // Combine user and order data for payment processing
+            (validUser, preparedOrder) -> 
+            combineUserOrder -> 
+            processPayment -> match {
+                success <- result -> {
+                    "🎉 Order processed successfully!" -> print
+                    result -> 
+                    notifyUser <- validUser.email ->
+                    updateUserHistory <- validUser.id ->
+                    return <- success <- "Order processed for " + validUser.name
+                }
+                    
+                error <- paymentError -> {
+                    "💸 Payment processing failed" -> print
+                    paymentError ->
+                    notifyUserOfFailure <- validUser.email ->
+                    return <- error <- "Payment failed for " + validUser.name + ": " + paymentError
+                }
+            }
+        }
+        
+        none -> {
+            "🚫 Invalid user - cannot process order" -> print
+            userId -> 
+            logInvalidUser ->
+            return <- error <- "User not found: " + userId
+        }
+    }
+}
+
+// Demonstrate error propagation and recovery
+robustOrderProcessing(userId, orderData) {
+    "🛡️ Starting robust order processing with fallbacks..." -> print
+    
+    // Try primary processing
+    (userId, orderData) -> processUserOrder -> match {
+        success <- result -> {
+            "✅ Primary processing succeeded" -> print
+            return <- result
+        }
+        
+        error <- primaryError -> {
+            "⚠️ Primary processing failed, trying fallback..." -> print
+            primaryError -> logPrimaryFailure
+            
+            // Fallback: simplified processing
+            orderData -> simplifiedProcessing -> match {
+                success <- fallbackResult -> {
+                    "🔄 Fallback processing succeeded" -> print
+                    fallbackResult -> return <- success <- "Processed via fallback: " + fallbackResult
+                }
+                
+                error <- fallbackError -> {
+                    "❌ Both primary and fallback failed" -> print
+                    (primaryError, fallbackError) -> 
+                    logCriticalFailure ->
+                    notifyAdmins ->
+                    return <- error <- "Complete processing failure"
+                }
+            }
+        }
+    }
+}
+
+main() {
+    "🎬 Starting Visual Debugging Demo..." -> print
+    "=" -> multiply <- 50 -> print
+    
+    // Create test data
+    testOrder = {
+        id: "order_12345",
+        userId: "user_789", 
+        items: [
+            {name: "MacBook Pro", price: 2499.99, quantity: 1},
+            {name: "Magic Mouse", price: 99.99, quantity: 1},
+            {name: "USB-C Cable", price: 29.99, quantity: 2}
+        ],
+        paymentMethod: "credit_card",
+        total: 2659.96,
+        shippingAddress: {
+            street: "123 Developer Lane",
+            city: "Code City",
+            country: "Debugland"
+        }
+    }
+    
+    "📊 Test Order Created:" -> print
+    testOrder -> print
+    
+    "🔄 Processing with robust error handling..." -> print
+    (testOrder.userId, testOrder) -> robustOrderProcessing -> match {
+        success <- successMsg -> {
+            "🎯 FINAL RESULT: SUCCESS" -> print
+            "Message: " + successMsg -> print
+        }
+        
+        error <- errorMsg -> {
+            "💥 FINAL RESULT: ERROR" -> print  
+            "Error: " + errorMsg -> print
+        }
+    }
+    
+    "=" -> multiply <- 50 -> print
+    "✨ Visual Debugging Demo Complete!" -> print
+}

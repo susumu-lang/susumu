@@ -1,0 +1,46 @@
+// Arrow Convergence Examples - Demonstrates parallel data flow
+
+// Simple convergence: multiple inputs to one function
+combine(a, b, c) {
+    "Combining: " + a + ", " + b + ", " + c -> print
+    a + b + c
+}
+
+// Data processing pipeline with convergence
+processData(mainData) {
+    "Processing main data: " + mainData -> print
+    
+    // Convergent flow: main data flows forward, supplemental data flows backward
+    mainData -> 
+    combine <-
+    "supplement1" <-
+    "supplement2" -> 
+    print
+    
+    // Return the result
+    mainData -> combine <- "supplement1" <- "supplement2"
+}
+
+// Complex convergence with calculations
+calculateTotal(base, tax, shipping) {
+    "Calculating total from base=" + base + ", tax=" + tax + ", shipping=" + shipping -> print
+    base + tax + shipping
+}
+
+main() {
+    "=== Simple Arrow Convergence ===" -> print
+    5 -> 
+    combine <- 
+    10 <- 
+    15 -> print
+    
+    "=== Data Processing with Convergence ===" -> print
+    "main_data" -> processData
+    
+    "=== Financial Calculation ===" -> print
+    100 ->
+    calculateTotal <-
+    15 <-  // tax
+    10 ->  // shipping  
+    print
+}
