@@ -1250,9 +1250,9 @@ fn builtin_core_add(args: &[Value]) -> SusumuResult<Value> {
 
     let mut result = 0.0;
     for (i, arg) in args.iter().enumerate() {
-        let num = arg
-            .as_f64()
-            .ok_or_else(|| SusumuError::runtime_error(&format!("Argument {} must be a number", i + 1)))?;
+        let num = arg.as_f64().ok_or_else(|| {
+            SusumuError::runtime_error(&format!("Argument {} must be a number", i + 1))
+        })?;
         result += num;
     }
 

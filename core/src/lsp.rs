@@ -359,7 +359,7 @@ impl SusumuLanguageServer {
                             },
                             severity: Some(DiagnosticSeverity::ERROR),
                             source: Some("susumu".to_string()),
-                            message: format!("Function '{}' is not defined", name),
+                            message: format!("Function '{name}' is not defined"),
                             ..Default::default()
                         });
                     }
@@ -472,7 +472,7 @@ impl SusumuLanguageServer {
 
     fn handle_completion(
         &self,
-        params: CompletionParams,
+        _params: CompletionParams,
     ) -> Result<Value, Box<dyn Error + Sync + Send>> {
         let mut items = Vec::new();
 
@@ -482,7 +482,7 @@ impl SusumuLanguageServer {
             items.push(CompletionItem {
                 label: name.to_string(),
                 kind: Some(CompletionItemKind::FUNCTION),
-                detail: Some(format!("Built-in function: {}", name)),
+                detail: Some(format!("Built-in function: {name}")),
                 documentation: Some(lsp_types::Documentation::String(get_builtin_documentation(
                     name,
                 ))),
@@ -497,7 +497,7 @@ impl SusumuLanguageServer {
             items.push(CompletionItem {
                 label: name.clone(),
                 kind: Some(CompletionItemKind::FUNCTION),
-                detail: Some(format!("{}({})", name, params_str)),
+                detail: Some(format!("{name}({params_str})")),
                 documentation: info
                     .documentation
                     .as_ref()
@@ -514,7 +514,7 @@ impl SusumuLanguageServer {
             items.push(CompletionItem {
                 label: keyword.to_string(),
                 kind: Some(CompletionItemKind::KEYWORD),
-                detail: Some(format!("Keyword: {}", keyword)),
+                detail: Some(format!("Keyword: {keyword}")),
                 insert_text: Some(keyword.to_string()),
                 ..Default::default()
             });
@@ -770,7 +770,7 @@ fn get_builtin_documentation(name: &str) -> String {
         "sort" => "Sorts an array in ascending order\nExample: [3, 1, 2] -> sort".to_string(),
         "reverse" => "Reverses an array or string\nExample: [1, 2, 3] -> reverse".to_string(),
         "print" => "Prints a value to the console\nExample: \"Hello\" -> print".to_string(),
-        _ => format!("Built-in function: {}", name),
+        _ => format!("Built-in function: {name}"),
     }
 }
 
