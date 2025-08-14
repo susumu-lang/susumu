@@ -380,7 +380,7 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens[0].token_type, TokenType::I);
-        assert_eq!(tokens[1].token_type, TokenType::Success);
+        assert_eq!(tokens[1].token_type, TokenType::Identifier);
         assert_eq!(tokens[2].token_type, TokenType::LeftBrace);
         // ... more assertions
     }

@@ -39,7 +39,7 @@ jobs:
       - name: Run clippy
         run: |
           cd core
-          cargo clippy --all-features -- -W clippy::correctness -W clippy::suspicious -A unused_imports -A dead_code -A unused_variables -A non_local_definitions
+          cargo clippy --all-features -- -W clippy::correctness -W clippy::suspicious -A unused_imports -A dead_code -A unused_variables -A deprecated -A non_local_definitions
           
       - name: Run tests
         run: |

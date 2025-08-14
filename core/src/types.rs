@@ -666,7 +666,7 @@ mod tests {
     #[test]
     fn test_result_type_creation() {
         let result_type =
-            SusumuType::result(SusumuType::String, SusumuType::Object(HashMap::new()));
+            SusumuType::result(SusumuType::String, SusumuType::Object(vec![]));
 
         assert!(result_type.is_result());
         assert_eq!(result_type.success_type(), Some(&SusumuType::String));

@@ -6,7 +6,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use serde_json::Value;
-use std::collections::HashMap;
+// use std::collections::HashMap;
 
 use crate::error::SusumuError;
 use crate::interpreter::{ExecutionTrace, PerformanceStats};
