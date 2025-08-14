@@ -25,7 +25,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -70,7 +70,7 @@ jobs:
           targets: ${{ matrix.target }}
           
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -101,7 +101,7 @@ jobs:
           7z a ${{ matrix.name }}.zip susumu.exe susumu-lsp.exe
           
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: core/target/${{ matrix.target }}/release/${{ matrix.name }}.*
@@ -123,7 +123,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
         
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -142,7 +142,7 @@ jobs:
           tar -czf susumu-wasm.tar.gz *
           
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: susumu-wasm
           path: core/pkg/susumu-wasm.tar.gz
@@ -166,7 +166,7 @@ jobs:
           npm ci
           
       - name: Download LSP binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: susumu-linux-x86_64
           path: ./lsp-binary/
@@ -185,7 +185,7 @@ jobs:
           npx vsce package
           
       - name: Upload extension artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vscode-extension
           path: vscode-extension/*.vsix
@@ -200,7 +200,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         
       - name: Create release
         uses: softprops/action-gh-release@v1
