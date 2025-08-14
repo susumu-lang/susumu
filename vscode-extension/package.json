@@ -4,7 +4,7 @@
   "description": "Full language support for Susumu - the arrow-flow programming language that makes data transformations visual",
   "version": "0.3.2",
   "publisher": "susumu-lang",
-  "icon": "images/icon.svg",
+  "icon": "images/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/susumu-lang/susumu"
