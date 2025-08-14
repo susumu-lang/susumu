@@ -207,13 +207,21 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find . -name "*.tar.gz" -o -name "*.zip" -o -name "*.vsix" | sort
+        
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            susumu-*/susumu-*.*
+            susumu-linux-x86_64/susumu-linux-x86_64.tar.gz
+            susumu-macos-x86_64/susumu-macos-x86_64.tar.gz
+            susumu-macos-aarch64/susumu-macos-aarch64.tar.gz
+            susumu-windows-x86_64.exe/susumu-windows-x86_64.exe.zip
             susumu-wasm/susumu-wasm.tar.gz
-            vscode-extension/*.vsix
+            vscode-extension/susumu-language-*.vsix
           generate_release_notes: true
           draft: false
           prerelease: false
