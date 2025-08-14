@@ -2,7 +2,7 @@
   "name": "susumu-language",
   "displayName": "Susumu Language Support",
   "description": "Full language support for Susumu - the arrow-flow programming language that makes data transformations visual",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "susumu-lang",
   "icon": "images/icon.png",
   "repository": {
