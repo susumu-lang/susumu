@@ -10,8 +10,7 @@ pub mod error;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;
-#[cfg(any(test, feature = "test-runner"))]
-pub mod tests;
+// External tests module removed - using inline tests instead
 pub mod types;
 pub mod visual_debug;
 
