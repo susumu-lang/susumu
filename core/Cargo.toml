@@ -1,6 +1,6 @@
 [package]
 name = "susumu"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Susumu Team <team@susumu.dev>"]
 description = "Revolutionary functional language making data flow visible through arrow syntax"
