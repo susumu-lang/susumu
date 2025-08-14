@@ -652,7 +652,6 @@ impl SusumuLanguageServer {
                     },
                     children: None,
                     tags: None,
-                    deprecated: Some(false),
                 };
                 symbols.push(symbol);
             }
