@@ -30,7 +30,7 @@ impl TestRunner {
     /// Run a single test case
     pub fn run_test(&mut self, name: &str, source: &str, expected: Option<Value>) -> TestResult {
         let start_time = std::time::Instant::now();
-        
+
         match self.execute_source(source) {
             Ok(result) => {
                 let passed = if let Some(expected_val) = expected {
@@ -38,7 +38,7 @@ impl TestRunner {
                 } else {
                     true // If no expected value, just check it runs without error
                 };
-                
+
                 TestResult {
                     name: name.to_string(),
                     passed,
@@ -53,7 +53,7 @@ impl TestRunner {
                 output: None,
                 error: Some(e.to_string()),
                 execution_time_ns: start_time.elapsed().as_nanos() as u64,
-            }
+            },
         }
     }
 
@@ -66,7 +66,11 @@ impl TestRunner {
                 (f1 - f2).abs() < f64::EPSILON
             }
             (Value::Array(a1), Value::Array(a2)) => {
-                a1.len() == a2.len() && a1.iter().zip(a2.iter()).all(|(v1, v2)| self.values_equal(v1, v2))
+                a1.len() == a2.len()
+                    && a1
+                        .iter()
+                        .zip(a2.iter())
+                        .all(|(v1, v2)| self.values_equal(v1, v2))
             }
             _ => a == b,
         }
@@ -216,7 +220,10 @@ addThree(a, b, c) {
         // Performance summary
         let total_time_ns: u64 = results.iter().map(|r| r.execution_time_ns).sum();
         let avg_time_ns = total_time_ns / results.len() as u64;
-        report.push_str(&format!("Total Execution Time: {}ms\n", total_time_ns / 1_000_000));
+        report.push_str(&format!(
+            "Total Execution Time: {}ms\n",
+            total_time_ns / 1_000_000
+        ));
         report.push_str(&format!("Average Test Time: {}μs\n\n", avg_time_ns / 1_000));
 
         // Individual test results
@@ -226,9 +233,12 @@ addThree(a, b, c) {
         for result in results {
             let status = if result.passed { "PASS" } else { "FAIL" };
             let time_us = result.execution_time_ns / 1_000;
-            
-            report.push_str(&format!("{:<30} {} ({:>6}μs)", result.name, status, time_us));
-            
+
+            report.push_str(&format!(
+                "{:<30} {} ({:>6}μs)",
+                result.name, status, time_us
+            ));
+
             if let Some(error) = &result.error {
                 report.push_str(&format!(" - Error: {}", error));
             } else if let Some(output) = &result.output {
@@ -242,7 +252,7 @@ addThree(a, b, c) {
         if !failed_tests.is_empty() {
             report.push_str("\nFailed Test Details:\n");
             report.push_str("===================\n");
-            
+
             for test in failed_tests {
                 report.push_str(&format!("❌ {}\n", test.name));
                 if let Some(error) = &test.error {
@@ -284,7 +294,7 @@ mod tests {
         let results = runner.run_all_tests();
         let report = runner.generate_report(&results);
         println!("{}", report);
-        
+
         // Ensure at least some tests pass
         let passed = results.iter().filter(|r| r.passed).count();
         assert!(passed > 0, "At least some tests should pass");

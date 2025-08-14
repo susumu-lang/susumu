@@ -171,8 +171,8 @@ pub enum ArrowDirection {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ConditionType {
-    If,        // Traditional if condition
-    Success,   // i success { ... } e { ... }
+    If,             // Traditional if condition
+    Success,        // i success { ... } e { ... }
     Custom(String), // i customCondition { ... } e { ... }
 }
 
@@ -204,7 +204,10 @@ impl Expression {
     }
 
     /// Create an arrow chain with mixed directions for convergence
-    pub fn convergence_chain(expressions: Vec<Expression>, directions: Vec<ArrowDirection>) -> Self {
+    pub fn convergence_chain(
+        expressions: Vec<Expression>,
+        directions: Vec<ArrowDirection>,
+    ) -> Self {
         Self::ArrowChain {
             expressions,
             directions,
@@ -246,7 +249,10 @@ impl Expression {
     pub fn is_literal(&self) -> bool {
         matches!(
             self,
-            Expression::Number(_) | Expression::String(_) | Expression::Boolean(_) | Expression::Null
+            Expression::Number(_)
+                | Expression::String(_)
+                | Expression::Boolean(_)
+                | Expression::Null
         )
     }
 
@@ -266,11 +272,11 @@ impl Expression {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Annotation {
-    Trace(String),                    // @trace <- "payment-flow"
-    Monitor(Vec<String>),             // @monitor <- ["latency", "errors"]
-    Config(serde_json::Value),        // @config <- {trace: "payment-flow", timeout: "30s"}
-    Parallel,                         // @parallel
-    Debug(Option<String>),            // @debug or @debug <- "checkpoint"
+    Trace(String),             // @trace <- "payment-flow"
+    Monitor(Vec<String>),      // @monitor <- ["latency", "errors"]
+    Config(serde_json::Value), // @config <- {trace: "payment-flow", timeout: "30s"}
+    Parallel,                  // @parallel
+    Debug(Option<String>),     // @debug or @debug <- "checkpoint"
 }
 
 impl Default for Program {

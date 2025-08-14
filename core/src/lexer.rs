@@ -23,36 +23,36 @@ pub enum TokenType {
     In,
 
     // Arrows
-    RightArrow,  // ->
-    LeftArrow,   // <-
+    RightArrow, // ->
+    LeftArrow,  // <-
 
     // Conditional keywords
-    I,   // i (condition)
-    E,   // e (else)
-    Ei,  // ei (else if)
+    I,  // i (condition)
+    E,  // e (else)
+    Ei, // ei (else if)
     // Pattern matching keywords
-    Match,   // match
-    When,    // when (guard)
-    True,    // true 
-    False,   // false
-    Mut,     // mut
-    
+    Match, // match
+    When,  // when (guard)
+    True,  // true
+    False, // false
+    Mut,   // mut
+
     // Operators
-    Plus,     // +
-    Minus,    // -
-    Multiply, // *
-    Divide,   // /
-    Assign,   // =
-    Equal,    // ==
-    NotEqual, // !=
-    Less,     // <
-    Greater,  // >
-    LessEq,   // <=
-    GreaterEq,// >=
-    Dot,      // .
+    Plus,       // +
+    Minus,      // -
+    Multiply,   // *
+    Divide,     // /
+    Assign,     // =
+    Equal,      // ==
+    NotEqual,   // !=
+    Less,       // <
+    Greater,    // >
+    LessEq,     // <=
+    GreaterEq,  // >=
+    Dot,        // .
     Underscore, // _
-    At,       // @ (for annotations)
-    
+    At,         // @ (for annotations)
+
     // Punctuation
     LeftParen,    // (
     RightParen,   // )
@@ -81,8 +81,8 @@ pub struct Token {
 }
 
 pub struct Lexer {
-    chars: Vec<char>,  // Pre-computed character array for proper indexing
-    position: usize,   // Character position (not byte position)
+    chars: Vec<char>, // Pre-computed character array for proper indexing
+    position: usize,  // Character position (not byte position)
     current_line: usize,
     current_column: usize,
     tokens: Vec<Token>,
@@ -205,7 +205,11 @@ impl Lexer {
     }
 
     fn line_comment(&mut self) -> SusumuResult<()> {
-        let start = if self.position >= 2 { self.position - 2 } else { 0 }; // Include the //
+        let start = if self.position >= 2 {
+            self.position - 2
+        } else {
+            0
+        }; // Include the //
         while self.peek() != '\n' && !self.is_at_end() {
             self.advance();
         }
@@ -216,7 +220,7 @@ impl Lexer {
 
     fn string_literal(&mut self) -> SusumuResult<()> {
         let start = self.position - 1; // Include opening quote
-        
+
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.current_line += 1;
@@ -237,9 +241,11 @@ impl Lexer {
         self.advance();
 
         // Get string content without quotes
-        let value: String = self.chars[(start + 1)..(self.position - 1)].iter().collect();
+        let value: String = self.chars[(start + 1)..(self.position - 1)]
+            .iter()
+            .collect();
         self.add_token(TokenType::String, &value);
-        
+
         Ok(())
     }
 
@@ -260,7 +266,7 @@ impl Lexer {
 
         let number_str: String = self.chars[start..self.position].iter().collect();
         self.add_token(TokenType::Number, &number_str);
-        
+
         Ok(())
     }
 
@@ -278,7 +284,7 @@ impl Lexer {
             "error" => TokenType::Error,
             "if" => TokenType::If,
             "else" => TokenType::Else,
-            "fe" => TokenType::ForEach,  // for-each abbreviation
+            "fe" => TokenType::ForEach, // for-each abbreviation
             "in" => TokenType::In,
             "i" => TokenType::I,
             "e" => TokenType::E,
@@ -307,7 +313,7 @@ impl Lexer {
 
     fn advance(&mut self) -> char {
         let c = self.current_char();
-        self.position += 1;  // Advance by 1 character, not bytes
+        self.position += 1; // Advance by 1 character, not bytes
         self.current_column += 1;
         c
     }
@@ -360,7 +366,7 @@ mod tests {
     fn test_basic_tokens() {
         let mut lexer = Lexer::new("5 -> add <- 3");
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens[0].token_type, TokenType::Number);
         assert_eq!(tokens[1].token_type, TokenType::RightArrow);
         assert_eq!(tokens[2].token_type, TokenType::Identifier);
@@ -372,7 +378,7 @@ mod tests {
     fn test_conditional_tokens() {
         let mut lexer = Lexer::new("i success { result -> return } e { error -> error }");
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens[0].token_type, TokenType::I);
         assert_eq!(tokens[1].token_type, TokenType::Success);
         assert_eq!(tokens[2].token_type, TokenType::LeftBrace);
@@ -383,7 +389,7 @@ mod tests {
     fn test_string_literals() {
         let mut lexer = Lexer::new(r#""hello world""#);
         let tokens = lexer.tokenize().unwrap();
-        
+
         assert_eq!(tokens[0].token_type, TokenType::String);
         assert_eq!(tokens[0].lexeme, "hello world");
     }

@@ -1,24 +1,22 @@
 //! Language Server Protocol implementation for Susumu
-//! 
+//!
 //! Provides IDE features like code completion, hover, diagnostics, etc.
 
-use lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse,
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    DidSaveTextDocumentParams, GotoDefinitionParams, GotoDefinitionResponse, Hover,
-    HoverContents, HoverParams, InitializeParams,
-    Location, MarkedString, Position, Range, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind,
-    DocumentSymbol, DocumentSymbolParams, DocumentSymbolResponse, SymbolKind,
-    TextEdit,
-};
 use lsp_server::{Connection, Message, Notification, Request, Response};
+use lsp_types::{
+    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, Diagnostic,
+    DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    DidSaveTextDocumentParams, DocumentSymbol, DocumentSymbolParams, DocumentSymbolResponse,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams,
+    InitializeParams, Location, MarkedString, Position, Range, ServerCapabilities, SymbolKind,
+    TextDocumentSyncCapability, TextDocumentSyncKind, TextEdit,
+};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 
-use crate::{Lexer, Parser, SusumuError};
 use crate::ast::{Expression, Program};
+use crate::{Lexer, Parser, SusumuError};
 
 pub struct SusumuLanguageServer {
     /// Stores the current state of open documents
@@ -56,9 +54,7 @@ impl SusumuLanguageServer {
 
         let (connection, io_threads) = Connection::stdio();
         let server_capabilities = serde_json::to_value(&ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::FULL,
-            )),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::FULL)),
             completion_provider: Some(lsp_types::CompletionOptions {
                 resolve_provider: Some(false),
                 trigger_characters: Some(vec![
@@ -185,7 +181,7 @@ impl SusumuLanguageServer {
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let uri = params.text_document.uri.to_string();
         let content = params.text_document.text;
-        
+
         self.documents.insert(
             uri.clone(),
             DocumentState {
@@ -205,10 +201,10 @@ impl SusumuLanguageServer {
         connection: &Connection,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let uri = params.text_document.uri.to_string();
-        
+
         if let Some(changes) = params.content_changes.first() {
             let content = changes.text.clone();
-            
+
             if let Some(doc) = self.documents.get_mut(&uri) {
                 doc.content = content.clone();
                 doc.version = params.text_document.version;
@@ -225,7 +221,7 @@ impl SusumuLanguageServer {
         connection: &Connection,
     ) -> Result<(), Box<dyn Error + Sync + Send>> {
         let uri = params.text_document.uri.to_string();
-        
+
         if let Some(doc) = self.documents.get(&uri) {
             let content = doc.content.clone(); // Clone to avoid borrow conflicts
             self.validate_document(&uri, &content, connection)?;
@@ -248,10 +244,10 @@ impl SusumuLanguageServer {
                     Ok(ast) => {
                         // Cache the AST for later use
                         self.ast_cache.insert(uri.to_string(), ast.clone());
-                        
+
                         // Extract function definitions
                         self.extract_function_definitions(uri, &ast);
-                        
+
                         // Run semantic validation for undefined functions
                         self.validate_function_references(content, &ast, &mut diagnostics);
                     }
@@ -282,40 +278,57 @@ impl SusumuLanguageServer {
             params: serde_json::to_value(params)?,
         };
 
-        connection.sender.send(Message::Notification(notification))?;
+        connection
+            .sender
+            .send(Message::Notification(notification))?;
         Ok(())
     }
 
-    fn validate_function_references(&self, content: &str, ast: &Program, diagnostics: &mut Vec<Diagnostic>) {
+    fn validate_function_references(
+        &self,
+        content: &str,
+        ast: &Program,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
         let builtin_functions = get_builtin_function_names();
         let lines: Vec<&str> = content.lines().collect();
-        
+
         // Collect all user-defined function names from this file and others
         let mut all_functions: std::collections::HashSet<String> = std::collections::HashSet::new();
-        
+
         // Add builtin functions
         for builtin in &builtin_functions {
             all_functions.insert(builtin.to_string());
         }
-        
+
         // Add user-defined functions
         for (name, _) in &self.function_defs {
             all_functions.insert(name.clone());
         }
-        
+
         // Add functions from current AST
         for function in &ast.functions {
             all_functions.insert(function.name.clone());
         }
-        
+
         // Check function references in expressions
         if let Some(ref main_expr) = ast.main_expression {
-            self.check_expression_for_undefined_functions(main_expr, &lines, &all_functions, diagnostics);
+            self.check_expression_for_undefined_functions(
+                main_expr,
+                &lines,
+                &all_functions,
+                diagnostics,
+            );
         }
-        
+
         // Check function references in function bodies
         for function in &ast.functions {
-            self.check_expression_for_undefined_functions(&function.body, &lines, &all_functions, diagnostics);
+            self.check_expression_for_undefined_functions(
+                &function.body,
+                &lines,
+                &all_functions,
+                diagnostics,
+            );
         }
     }
 
@@ -324,10 +337,10 @@ impl SusumuLanguageServer {
         expr: &Expression,
         lines: &[&str],
         defined_functions: &std::collections::HashSet<String>,
-        diagnostics: &mut Vec<Diagnostic>
+        diagnostics: &mut Vec<Diagnostic>,
     ) {
         // Expression already imported at top
-        
+
         match expr {
             Expression::FunctionCall { name, args } => {
                 if !defined_functions.contains(name) {
@@ -335,8 +348,14 @@ impl SusumuLanguageServer {
                     if let Some((line_num, col)) = self.find_identifier_in_content(lines, name) {
                         diagnostics.push(Diagnostic {
                             range: Range {
-                                start: Position { line: line_num as u32, character: col as u32 },
-                                end: Position { line: line_num as u32, character: (col + name.len()) as u32 },
+                                start: Position {
+                                    line: line_num as u32,
+                                    character: col as u32,
+                                },
+                                end: Position {
+                                    line: line_num as u32,
+                                    character: (col + name.len()) as u32,
+                                },
                             },
                             severity: Some(DiagnosticSeverity::ERROR),
                             source: Some("susumu".to_string()),
@@ -345,37 +364,71 @@ impl SusumuLanguageServer {
                         });
                     }
                 }
-                
+
                 // Recursively check arguments
                 for arg in args {
-                    self.check_expression_for_undefined_functions(arg, lines, defined_functions, diagnostics);
+                    self.check_expression_for_undefined_functions(
+                        arg,
+                        lines,
+                        defined_functions,
+                        diagnostics,
+                    );
                 }
             }
             Expression::ArrowChain { expressions, .. } => {
                 for expr in expressions {
-                    self.check_expression_for_undefined_functions(expr, lines, defined_functions, diagnostics);
+                    self.check_expression_for_undefined_functions(
+                        expr,
+                        lines,
+                        defined_functions,
+                        diagnostics,
+                    );
                 }
             }
             Expression::BinaryOp { left, right, .. } => {
-                self.check_expression_for_undefined_functions(left, lines, defined_functions, diagnostics);
-                self.check_expression_for_undefined_functions(right, lines, defined_functions, diagnostics);
+                self.check_expression_for_undefined_functions(
+                    left,
+                    lines,
+                    defined_functions,
+                    diagnostics,
+                );
+                self.check_expression_for_undefined_functions(
+                    right,
+                    lines,
+                    defined_functions,
+                    diagnostics,
+                );
             }
             Expression::Assignment { value, .. } => {
-                self.check_expression_for_undefined_functions(value, lines, defined_functions, diagnostics);
+                self.check_expression_for_undefined_functions(
+                    value,
+                    lines,
+                    defined_functions,
+                    diagnostics,
+                );
             }
             // Handle other expression types as needed
             _ => {}
         }
     }
 
-    fn find_identifier_in_content(&self, lines: &[&str], identifier: &str) -> Option<(usize, usize)> {
+    fn find_identifier_in_content(
+        &self,
+        lines: &[&str],
+        identifier: &str,
+    ) -> Option<(usize, usize)> {
         for (line_num, line) in lines.iter().enumerate() {
             if let Some(col) = line.find(identifier) {
                 // Make sure it's a whole word, not part of another identifier
-                let start_ok = col == 0 || !line.chars().nth(col - 1).unwrap_or(' ').is_alphanumeric();
-                let end_ok = col + identifier.len() >= line.len() || 
-                           !line.chars().nth(col + identifier.len()).unwrap_or(' ').is_alphanumeric();
-                
+                let start_ok =
+                    col == 0 || !line.chars().nth(col - 1).unwrap_or(' ').is_alphanumeric();
+                let end_ok = col + identifier.len() >= line.len()
+                    || !line
+                        .chars()
+                        .nth(col + identifier.len())
+                        .unwrap_or(' ')
+                        .is_alphanumeric();
+
                 if start_ok && end_ok {
                     return Some((line_num, col));
                 }
@@ -386,7 +439,8 @@ impl SusumuLanguageServer {
 
     fn extract_function_definitions(&mut self, uri: &str, ast: &Program) {
         // Clear old definitions for this file
-        self.function_defs.retain(|_, info| !info.location.uri.as_str().starts_with(uri));
+        self.function_defs
+            .retain(|_, info| !info.location.uri.as_str().starts_with(uri));
 
         // Extract new definitions from the functions field
         for function in &ast.functions {
@@ -396,17 +450,30 @@ impl SusumuLanguageServer {
                 location: Location {
                     uri: lsp_types::Url::parse(uri).unwrap(),
                     range: Range {
-                        start: Position { line: 0, character: 0 }, // TODO: Track actual positions
-                        end: Position { line: 0, character: 0 },
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        }, // TODO: Track actual positions
+                        end: Position {
+                            line: 0,
+                            character: 0,
+                        },
                     },
                 },
-                documentation: Some(format!("Function {} with {} parameters", function.name, function.params.len())),
+                documentation: Some(format!(
+                    "Function {} with {} parameters",
+                    function.name,
+                    function.params.len()
+                )),
             };
             self.function_defs.insert(function.name.clone(), info);
         }
     }
 
-    fn handle_completion(&self, params: CompletionParams) -> Result<Value, Box<dyn Error + Sync + Send>> {
+    fn handle_completion(
+        &self,
+        params: CompletionParams,
+    ) -> Result<Value, Box<dyn Error + Sync + Send>> {
         let mut items = Vec::new();
 
         // Add builtin functions
@@ -416,9 +483,9 @@ impl SusumuLanguageServer {
                 label: name.to_string(),
                 kind: Some(CompletionItemKind::FUNCTION),
                 detail: Some(format!("Built-in function: {}", name)),
-                documentation: Some(lsp_types::Documentation::String(
-                    get_builtin_documentation(name)
-                )),
+                documentation: Some(lsp_types::Documentation::String(get_builtin_documentation(
+                    name,
+                ))),
                 insert_text: Some(name.to_string()),
                 ..Default::default()
             });
@@ -431,16 +498,19 @@ impl SusumuLanguageServer {
                 label: name.clone(),
                 kind: Some(CompletionItemKind::FUNCTION),
                 detail: Some(format!("{}({})", name, params_str)),
-                documentation: info.documentation.as_ref().map(|doc| 
-                    lsp_types::Documentation::String(doc.clone())
-                ),
+                documentation: info
+                    .documentation
+                    .as_ref()
+                    .map(|doc| lsp_types::Documentation::String(doc.clone())),
                 insert_text: Some(name.clone()),
                 ..Default::default()
             });
         }
 
         // Add keywords
-        for keyword in &["return", "i", "e", "success", "error", "true", "false", "null"] {
+        for keyword in &[
+            "return", "i", "e", "success", "error", "true", "false", "null",
+        ] {
             items.push(CompletionItem {
                 label: keyword.to_string(),
                 kind: Some(CompletionItemKind::KEYWORD),
@@ -456,7 +526,7 @@ impl SusumuLanguageServer {
             kind: Some(CompletionItemKind::OPERATOR),
             detail: Some("Forward arrow operator".to_string()),
             documentation: Some(lsp_types::Documentation::String(
-                "Flows data forward to the next function".to_string()
+                "Flows data forward to the next function".to_string(),
             )),
             insert_text: Some("-> ".to_string()),
             ..Default::default()
@@ -467,7 +537,7 @@ impl SusumuLanguageServer {
             kind: Some(CompletionItemKind::OPERATOR),
             detail: Some("Backward arrow operator".to_string()),
             documentation: Some(lsp_types::Documentation::String(
-                "Gathers data from the right into a function".to_string()
+                "Gathers data from the right into a function".to_string(),
             )),
             insert_text: Some(" <- ".to_string()),
             ..Default::default()
@@ -477,7 +547,11 @@ impl SusumuLanguageServer {
     }
 
     fn handle_hover(&self, params: HoverParams) -> Result<Value, Box<dyn Error + Sync + Send>> {
-        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
         let position = params.text_document_position_params.position;
 
         if let Some(doc) = self.documents.get(&uri) {
@@ -486,9 +560,11 @@ impl SusumuLanguageServer {
                 // Check if it's a builtin function
                 if get_builtin_function_names().contains(&word.as_str()) {
                     let hover = Hover {
-                        contents: HoverContents::Scalar(MarkedString::String(
-                            format!("**{}** (built-in)\n\n{}", word, get_builtin_documentation(&word))
-                        )),
+                        contents: HoverContents::Scalar(MarkedString::String(format!(
+                            "**{}** (built-in)\n\n{}",
+                            word,
+                            get_builtin_documentation(&word)
+                        ))),
                         range: None,
                     };
                     return Ok(serde_json::to_value(hover)?);
@@ -498,13 +574,14 @@ impl SusumuLanguageServer {
                 if let Some(info) = self.function_defs.get(&word) {
                     let params_str = info.params.join(", ");
                     let hover = Hover {
-                        contents: HoverContents::Scalar(MarkedString::String(
-                            format!("**{}({})** (user-defined)\n\n{}", 
-                                info.name, 
-                                params_str,
-                                info.documentation.as_deref().unwrap_or("No documentation available")
-                            )
-                        )),
+                        contents: HoverContents::Scalar(MarkedString::String(format!(
+                            "**{}({})** (user-defined)\n\n{}",
+                            info.name,
+                            params_str,
+                            info.documentation
+                                .as_deref()
+                                .unwrap_or("No documentation available")
+                        ))),
                         range: None,
                     };
                     return Ok(serde_json::to_value(hover)?);
@@ -515,8 +592,15 @@ impl SusumuLanguageServer {
         Ok(Value::Null)
     }
 
-    fn handle_goto_definition(&self, params: GotoDefinitionParams) -> Result<Value, Box<dyn Error + Sync + Send>> {
-        let uri = params.text_document_position_params.text_document.uri.to_string();
+    fn handle_goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> Result<Value, Box<dyn Error + Sync + Send>> {
+        let uri = params
+            .text_document_position_params
+            .text_document
+            .uri
+            .to_string();
         let position = params.text_document_position_params.position;
 
         if let Some(doc) = self.documents.get(&uri) {
@@ -524,7 +608,7 @@ impl SusumuLanguageServer {
                 // Look for function definition
                 if let Some(info) = self.function_defs.get(&word) {
                     return Ok(serde_json::to_value(GotoDefinitionResponse::Scalar(
-                        info.location.clone()
+                        info.location.clone(),
                     ))?);
                 }
             }
@@ -533,7 +617,10 @@ impl SusumuLanguageServer {
         Ok(Value::Null)
     }
 
-    fn handle_document_symbols(&self, params: DocumentSymbolParams) -> Result<Value, Box<dyn Error + Sync + Send>> {
+    fn handle_document_symbols(
+        &self,
+        params: DocumentSymbolParams,
+    ) -> Result<Value, Box<dyn Error + Sync + Send>> {
         let uri = params.text_document.uri.to_string();
         let mut symbols = Vec::new();
 
@@ -544,12 +631,24 @@ impl SusumuLanguageServer {
                     detail: Some(format!("({})", function.params.join(", "))),
                     kind: SymbolKind::FUNCTION,
                     range: Range {
-                        start: Position { line: 0, character: 0 },
-                        end: Position { line: 0, character: 0 },
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: 0,
+                            character: 0,
+                        },
                     },
                     selection_range: Range {
-                        start: Position { line: 0, character: 0 },
-                        end: Position { line: 0, character: 0 },
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: 0,
+                            character: 0,
+                        },
                     },
                     children: None,
                     tags: None,
@@ -559,27 +658,32 @@ impl SusumuLanguageServer {
             }
         }
 
-        Ok(serde_json::to_value(DocumentSymbolResponse::Nested(symbols))?)
+        Ok(serde_json::to_value(DocumentSymbolResponse::Nested(
+            symbols,
+        ))?)
     }
-
 }
 
 fn create_diagnostic_from_error(error: &SusumuError) -> Diagnostic {
     let (line, col, message) = match error {
-        SusumuError::LexerError { line, column, message } => (*line, *column, message.clone()),
+        SusumuError::LexerError {
+            line,
+            column,
+            message,
+        } => (*line, *column, message.clone()),
         SusumuError::ParserError { line, message } => (*line, 0, message.clone()),
         _ => (0, 0, error.to_string()),
     };
 
     Diagnostic {
         range: Range {
-            start: Position { 
-                line: (line as u32).saturating_sub(1), 
-                character: (col as u32).saturating_sub(1) 
+            start: Position {
+                line: (line as u32).saturating_sub(1),
+                character: (col as u32).saturating_sub(1),
             },
-            end: Position { 
-                line: (line as u32).saturating_sub(1), 
-                character: col as u32 
+            end: Position {
+                line: (line as u32).saturating_sub(1),
+                character: col as u32,
             },
         },
         severity: Some(DiagnosticSeverity::ERROR),
@@ -591,31 +695,41 @@ fn create_diagnostic_from_error(error: &SusumuError) -> Diagnostic {
 
 fn get_word_at_position(content: &str, position: Position) -> Option<String> {
     let lines: Vec<&str> = content.lines().collect();
-    
+
     if let Some(line) = lines.get(position.line as usize) {
         let char_pos = position.character as usize;
-        
+
         // Find word boundaries
         let mut start = char_pos;
         let mut end = char_pos;
-        
+
         let chars: Vec<char> = line.chars().collect();
-        
+
         // Find start of word
-        while start > 0 && chars.get(start - 1).map(|c| c.is_alphanumeric() || *c == '_').unwrap_or(false) {
+        while start > 0
+            && chars
+                .get(start - 1)
+                .map(|c| c.is_alphanumeric() || *c == '_')
+                .unwrap_or(false)
+        {
             start -= 1;
         }
-        
+
         // Find end of word
-        while end < chars.len() && chars.get(end).map(|c| c.is_alphanumeric() || *c == '_').unwrap_or(false) {
+        while end < chars.len()
+            && chars
+                .get(end)
+                .map(|c| c.is_alphanumeric() || *c == '_')
+                .unwrap_or(false)
+        {
             end += 1;
         }
-        
+
         if start < end {
             return Some(chars[start..end].iter().collect());
         }
     }
-    
+
     None
 }
 
@@ -626,7 +740,8 @@ fn format_susumu_code(code: &str) -> String {
             line.replace("->", " -> ")
                 .replace("<-", " <- ")
                 .replace("  ", " ") // Remove double spaces
-                .trim().to_string()
+                .trim()
+                .to_string()
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -635,13 +750,21 @@ fn format_susumu_code(code: &str) -> String {
 fn get_builtin_documentation(name: &str) -> String {
     match name {
         "add" => "Adds two or more numbers together\nExample: 5 -> add <- 3".to_string(),
-        "subtract" => "Subtracts the second number from the first\nExample: 10 -> subtract <- 3".to_string(),
+        "subtract" => {
+            "Subtracts the second number from the first\nExample: 10 -> subtract <- 3".to_string()
+        }
         "multiply" => "Multiplies two or more numbers\nExample: 4 -> multiply <- 5".to_string(),
-        "divide" => "Divides the first number by the second\nExample: 20 -> divide <- 4".to_string(),
-        "concat" => "Concatenates strings together\nExample: \"Hello\" -> concat <- \" World\"".to_string(),
+        "divide" => {
+            "Divides the first number by the second\nExample: 20 -> divide <- 4".to_string()
+        }
+        "concat" => {
+            "Concatenates strings together\nExample: \"Hello\" -> concat <- \" World\"".to_string()
+        }
         "to_upper" => "Converts a string to uppercase\nExample: \"hello\" -> to_upper".to_string(),
         "to_lower" => "Converts a string to lowercase\nExample: \"HELLO\" -> to_lower".to_string(),
-        "length" => "Returns the length of a string or array\nExample: \"hello\" -> length".to_string(),
+        "length" => {
+            "Returns the length of a string or array\nExample: \"hello\" -> length".to_string()
+        }
         "first" => "Returns the first element of an array\nExample: [1, 2, 3] -> first".to_string(),
         "last" => "Returns the last element of an array\nExample: [1, 2, 3] -> last".to_string(),
         "sort" => "Sorts an array in ascending order\nExample: [3, 1, 2] -> sort".to_string(),
@@ -653,11 +776,33 @@ fn get_builtin_documentation(name: &str) -> String {
 
 fn get_builtin_function_names() -> Vec<&'static str> {
     vec![
-        "add", "subtract", "multiply", "divide", "power", "sqrt", "abs", "min", "max",
-        "concat", "to_upper", "to_lower", "length", "trim", "split",
-        "first", "last", "sort", "reverse", "map", "filter", "reduce", 
-        "type_of", "to_string", "to_number",
-        "print", "println"
+        "add",
+        "subtract",
+        "multiply",
+        "divide",
+        "power",
+        "sqrt",
+        "abs",
+        "min",
+        "max",
+        "concat",
+        "to_upper",
+        "to_lower",
+        "length",
+        "trim",
+        "split",
+        "first",
+        "last",
+        "sort",
+        "reverse",
+        "map",
+        "filter",
+        "reduce",
+        "type_of",
+        "to_string",
+        "to_number",
+        "print",
+        "println",
     ]
 }
 

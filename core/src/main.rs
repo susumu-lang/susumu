@@ -55,27 +55,37 @@ fn run_file_with_debug(source: &str) {
         Ok((result, traces, stats)) => {
             // Show the result
             println!("🎯 Result: {:?}", result);
-            
+
             // Show performance stats
             println!("\n📊 Performance Statistics:");
-            println!("   • Expressions evaluated: {}", stats.total_expressions_evaluated);
-            println!("   • Execution time: {}μs", stats.total_execution_time_ns / 1000);
+            println!(
+                "   • Expressions evaluated: {}",
+                stats.total_expressions_evaluated
+            );
+            println!(
+                "   • Execution time: {}μs",
+                stats.total_execution_time_ns / 1000
+            );
             println!("   • Arrow chains: {}", stats.arrow_chain_count);
             println!("   • Function calls: {}", stats.function_call_count);
-            println!("   • Convergence operations: {}", stats.convergence_operations);
-            
+            println!(
+                "   • Convergence operations: {}",
+                stats.convergence_operations
+            );
+
             // Show execution traces
             if !traces.is_empty() {
                 println!("\n🔍 Execution Flow:");
                 for (i, trace) in traces.iter().enumerate() {
-                    println!("   {}. {} -> {}", 
-                        i + 1, 
+                    println!(
+                        "   {}. {} -> {}",
+                        i + 1,
                         trace.expression,
                         value_to_display_string(&trace.output_value)
                     );
                 }
             }
-            
+
             // Generate flow diagram
             let mut interpreter = Interpreter::new();
             if let Ok(tokens) = Lexer::new(source).tokenize() {
@@ -92,15 +102,24 @@ fn run_file_with_debug(source: &str) {
     }
 }
 
-fn execute_with_debugging(source: &str) -> Result<(serde_json::Value, Vec<susumu::interpreter::ExecutionTrace>, susumu::interpreter::PerformanceStats), Box<dyn std::error::Error>> {
+fn execute_with_debugging(
+    source: &str,
+) -> Result<
+    (
+        serde_json::Value,
+        Vec<susumu::interpreter::ExecutionTrace>,
+        susumu::interpreter::PerformanceStats,
+    ),
+    Box<dyn std::error::Error>,
+> {
     let tokens = Lexer::new(source).tokenize()?;
     let ast = Parser::new(tokens).parse()?;
     let mut interpreter = Interpreter::new();
-    
+
     let result = interpreter.execute(&ast)?;
     let traces = interpreter.get_execution_traces().to_vec();
     let stats = interpreter.get_performance_stats().clone();
-    
+
     Ok((result, traces, stats))
 }
 
@@ -132,7 +151,7 @@ fn run_repl() {
         match io::stdin().read_line(&mut input) {
             Ok(_) => {
                 let input = input.trim();
-                
+
                 if input.is_empty() {
                     continue;
                 }
@@ -177,20 +196,15 @@ fn run_repl() {
 fn execute_repl_line(source: &str, interpreter: &mut Interpreter) -> Result<String, String> {
     // Try to parse as an expression first
     match Lexer::new(source).tokenize() {
-        Ok(tokens) => {
-            match Parser::new(tokens).parse() {
-                Ok(ast) => {
-                    match interpreter.execute(&ast) {
-                        Ok(result) => {
-                            Ok(serde_json::to_string(&result)
-                               .unwrap_or_else(|_| "null".to_string()))
-                        }
-                        Err(err) => Err(err.to_string()),
-                    }
+        Ok(tokens) => match Parser::new(tokens).parse() {
+            Ok(ast) => match interpreter.execute(&ast) {
+                Ok(result) => {
+                    Ok(serde_json::to_string(&result).unwrap_or_else(|_| "null".to_string()))
                 }
                 Err(err) => Err(err.to_string()),
-            }
-        }
+            },
+            Err(err) => Err(err.to_string()),
+        },
         Err(err) => Err(err.to_string()),
     }
 }

@@ -18,14 +18,14 @@ impl BuiltinRegistry {
         let mut registry = Self {
             functions: HashMap::new(),
         };
-        
+
         registry.register_math_functions();
         registry.register_string_functions();
         registry.register_array_functions();
         registry.register_io_functions();
         registry.register_utility_functions();
         registry.register_maybe_result_functions();
-        
+
         registry
     }
 
@@ -133,7 +133,11 @@ impl Default for BuiltinRegistry {
 
 /// Helper function to create JSON numbers that preserve integer type when appropriate
 fn create_number_value(value: f64) -> Value {
-    if value.fract() == 0.0 && value.is_finite() && value >= i64::MIN as f64 && value <= i64::MAX as f64 {
+    if value.fract() == 0.0
+        && value.is_finite()
+        && value >= i64::MIN as f64
+        && value <= i64::MAX as f64
+    {
         // Return as integer if it's a whole number within i64 range
         json!(value as i64)
     } else {
@@ -145,7 +149,9 @@ fn create_number_value(value: f64) -> Value {
 // Math functions
 fn builtin_add(args: &[Value]) -> SusumuResult<Value> {
     if args.is_empty() {
-        return Err(SusumuError::function_call_error("add requires at least one argument"));
+        return Err(SusumuError::function_call_error(
+            "add requires at least one argument",
+        ));
     }
 
     let mut result = 0.0;
@@ -160,27 +166,27 @@ fn builtin_add(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_subtract(args: &[Value]) -> SusumuResult<Value> {
     match args.len() {
-        1 => {
-            match &args[0] {
-                Value::Number(n) => Ok(create_number_value(-n.as_f64().unwrap())),
-                _ => Err(SusumuError::type_error("number", &format!("{:?}", args[0]))),
-            }
-        }
-        2 => {
-            match (&args[0], &args[1]) {
-                (Value::Number(a), Value::Number(b)) => {
-                    Ok(create_number_value(a.as_f64().unwrap() - b.as_f64().unwrap()))
-                }
-                _ => Err(SusumuError::type_error("number", "non-number")),
-            }
-        }
-        _ => Err(SusumuError::function_call_error("subtract requires 1 or 2 arguments")),
+        1 => match &args[0] {
+            Value::Number(n) => Ok(create_number_value(-n.as_f64().unwrap())),
+            _ => Err(SusumuError::type_error("number", &format!("{:?}", args[0]))),
+        },
+        2 => match (&args[0], &args[1]) {
+            (Value::Number(a), Value::Number(b)) => Ok(create_number_value(
+                a.as_f64().unwrap() - b.as_f64().unwrap(),
+            )),
+            _ => Err(SusumuError::type_error("number", "non-number")),
+        },
+        _ => Err(SusumuError::function_call_error(
+            "subtract requires 1 or 2 arguments",
+        )),
     }
 }
 
 fn builtin_multiply(args: &[Value]) -> SusumuResult<Value> {
     if args.is_empty() {
-        return Err(SusumuError::function_call_error("multiply requires at least one argument"));
+        return Err(SusumuError::function_call_error(
+            "multiply requires at least one argument",
+        ));
     }
 
     let mut result = 1.0;
@@ -195,7 +201,9 @@ fn builtin_multiply(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_divide(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("divide requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "divide requires exactly 2 arguments",
+        ));
     }
 
     match (&args[0], &args[1]) {
@@ -212,7 +220,9 @@ fn builtin_divide(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_modulo(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("modulo requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "modulo requires exactly 2 arguments",
+        ));
     }
 
     match (&args[0], &args[1]) {
@@ -229,27 +239,33 @@ fn builtin_modulo(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_power(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("power requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "power requires exactly 2 arguments",
+        ));
     }
 
     match (&args[0], &args[1]) {
-        (Value::Number(a), Value::Number(b)) => {
-            Ok(create_number_value(a.as_f64().unwrap().powf(b.as_f64().unwrap())))
-        }
+        (Value::Number(a), Value::Number(b)) => Ok(create_number_value(
+            a.as_f64().unwrap().powf(b.as_f64().unwrap()),
+        )),
         _ => Err(SusumuError::type_error("number", "non-number")),
     }
 }
 
 fn builtin_sqrt(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("sqrt requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "sqrt requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
         Value::Number(n) => {
             let val = n.as_f64().unwrap();
             if val < 0.0 {
-                return Err(SusumuError::runtime_error("Cannot take square root of negative number"));
+                return Err(SusumuError::runtime_error(
+                    "Cannot take square root of negative number",
+                ));
             }
             Ok(create_number_value(val.sqrt()))
         }
@@ -259,7 +275,9 @@ fn builtin_sqrt(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_abs(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("abs requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "abs requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -270,7 +288,9 @@ fn builtin_abs(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_min(args: &[Value]) -> SusumuResult<Value> {
     if args.is_empty() {
-        return Err(SusumuError::function_call_error("min requires at least one argument"));
+        return Err(SusumuError::function_call_error(
+            "min requires at least one argument",
+        ));
     }
 
     let mut min_val = f64::INFINITY;
@@ -290,7 +310,9 @@ fn builtin_min(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_max(args: &[Value]) -> SusumuResult<Value> {
     if args.is_empty() {
-        return Err(SusumuError::function_call_error("max requires at least one argument"));
+        return Err(SusumuError::function_call_error(
+            "max requires at least one argument",
+        ));
     }
 
     let mut max_val = f64::NEG_INFINITY;
@@ -314,7 +336,9 @@ fn builtin_sum(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_average(args: &[Value]) -> SusumuResult<Value> {
     if args.is_empty() {
-        return Err(SusumuError::function_call_error("average requires at least one argument"));
+        return Err(SusumuError::function_call_error(
+            "average requires at least one argument",
+        ));
     }
 
     let sum = builtin_add(args)?;
@@ -338,19 +362,26 @@ fn builtin_concat(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_length(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("length requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "length requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
         Value::String(s) => Ok(json!(s.len())),
         Value::Array(a) => Ok(json!(a.len())),
-        _ => Err(SusumuError::type_error("string or array", &format!("{:?}", args[0]))),
+        _ => Err(SusumuError::type_error(
+            "string or array",
+            &format!("{:?}", args[0]),
+        )),
     }
 }
 
 fn builtin_substring(args: &[Value]) -> SusumuResult<Value> {
     if args.len() < 2 || args.len() > 3 {
-        return Err(SusumuError::function_call_error("substring requires 2 or 3 arguments"));
+        return Err(SusumuError::function_call_error(
+            "substring requires 2 or 3 arguments",
+        ));
     }
 
     match (&args[0], &args[1]) {
@@ -381,7 +412,9 @@ fn builtin_substring(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_to_upper(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("to_upper requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "to_upper requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -392,7 +425,9 @@ fn builtin_to_upper(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_to_lower(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("to_lower requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "to_lower requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -403,7 +438,9 @@ fn builtin_to_lower(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_trim(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("trim requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "trim requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -414,7 +451,9 @@ fn builtin_trim(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_split(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("split requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "split requires exactly 2 arguments",
+        ));
     }
 
     match (&args[0], &args[1]) {
@@ -428,13 +467,13 @@ fn builtin_split(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_contains(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("contains requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "contains requires exactly 2 arguments",
+        ));
     }
 
     match (&args[0], &args[1]) {
-        (Value::String(s), Value::String(substr)) => {
-            Ok(json!(s.contains(substr)))
-        }
+        (Value::String(s), Value::String(substr)) => Ok(json!(s.contains(substr))),
         _ => Err(SusumuError::type_error("string, string", "other types")),
     }
 }
@@ -442,7 +481,9 @@ fn builtin_contains(args: &[Value]) -> SusumuResult<Value> {
 // Array functions
 fn builtin_first(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("first requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "first requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -459,7 +500,9 @@ fn builtin_first(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_last(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("last requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "last requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -476,7 +519,9 @@ fn builtin_last(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_rest(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("rest requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "rest requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -493,7 +538,9 @@ fn builtin_rest(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_push(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("push requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "push requires exactly 2 arguments",
+        ));
     }
 
     match &args[0] {
@@ -508,7 +555,9 @@ fn builtin_push(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_pop(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("pop requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "pop requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -542,20 +591,22 @@ fn builtin_reduce(_args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_sort(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("sort requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "sort requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
         Value::Array(a) => {
             let mut sorted = a.clone();
-            sorted.sort_by(|a, b| {
-                match (a, b) {
-                    (Value::Number(n1), Value::Number(n2)) => {
-                        n1.as_f64().unwrap().partial_cmp(&n2.as_f64().unwrap()).unwrap()
-                    }
-                    (Value::String(s1), Value::String(s2)) => s1.cmp(s2),
-                    _ => std::cmp::Ordering::Equal,
-                }
+            sorted.sort_by(|a, b| match (a, b) {
+                (Value::Number(n1), Value::Number(n2)) => n1
+                    .as_f64()
+                    .unwrap()
+                    .partial_cmp(&n2.as_f64().unwrap())
+                    .unwrap(),
+                (Value::String(s1), Value::String(s2)) => s1.cmp(s2),
+                _ => std::cmp::Ordering::Equal,
             });
             Ok(Value::Array(sorted))
         }
@@ -565,7 +616,9 @@ fn builtin_sort(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_reverse(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("reverse requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "reverse requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
@@ -609,7 +662,9 @@ fn builtin_debug(args: &[Value]) -> SusumuResult<Value> {
 // Utility functions
 fn builtin_type_of(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("type_of requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "type_of requires exactly 1 argument",
+        ));
     }
 
     let type_name = match &args[0] {
@@ -625,67 +680,84 @@ fn builtin_type_of(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_is_null(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_null requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_null requires exactly 1 argument",
+        ));
     }
     Ok(json!(args[0] == Value::Null))
 }
 
 fn builtin_is_number(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_number requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_number requires exactly 1 argument",
+        ));
     }
     Ok(json!(matches!(args[0], Value::Number(_))))
 }
 
 fn builtin_is_string(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_string requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_string requires exactly 1 argument",
+        ));
     }
     Ok(json!(matches!(args[0], Value::String(_))))
 }
 
 fn builtin_is_boolean(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_boolean requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_boolean requires exactly 1 argument",
+        ));
     }
     Ok(json!(matches!(args[0], Value::Bool(_))))
 }
 
 fn builtin_is_array(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_array requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_array requires exactly 1 argument",
+        ));
     }
     Ok(json!(matches!(args[0], Value::Array(_))))
 }
 
 fn builtin_is_object(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_object requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_object requires exactly 1 argument",
+        ));
     }
     Ok(json!(matches!(args[0], Value::Object(_))))
 }
 
 fn builtin_to_string(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("to_string requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "to_string requires exactly 1 argument",
+        ));
     }
     Ok(json!(value_to_display_string(&args[0])))
 }
 
 fn builtin_to_number(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("to_number requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "to_number requires exactly 1 argument",
+        ));
     }
 
     match &args[0] {
         Value::Number(_n) => Ok(args[0].clone()),
-        Value::String(s) => {
-            match s.parse::<f64>() {
-                Ok(n) => Ok(json!(n)),
-                Err(_) => Err(SusumuError::type_error("valid number string", s)),
-            }
-        }
-        _ => Err(SusumuError::type_error("number or string", &format!("{:?}", args[0]))),
+        Value::String(s) => match s.parse::<f64>() {
+            Ok(n) => Ok(json!(n)),
+            Err(_) => Err(SusumuError::type_error("valid number string", s)),
+        },
+        _ => Err(SusumuError::type_error(
+            "number or string",
+            &format!("{:?}", args[0]),
+        )),
     }
 }
 
@@ -724,9 +796,11 @@ pub fn value_to_display_string(value: &Value) -> String {
 // Maybe/Result constructor functions
 fn builtin_some(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("some requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "some requires exactly 1 argument",
+        ));
     }
-    
+
     Ok(json!({
         "type": "some",
         "value": args[0].clone()
@@ -741,9 +815,11 @@ fn builtin_none(_args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_success(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("success requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "success requires exactly 1 argument",
+        ));
     }
-    
+
     Ok(json!({
         "type": "success",
         "value": args[0].clone()
@@ -752,9 +828,11 @@ fn builtin_success(args: &[Value]) -> SusumuResult<Value> {
 
 fn builtin_error(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("error requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "error requires exactly 1 argument",
+        ));
     }
-    
+
     Ok(json!({
         "type": "error",
         "value": args[0].clone()
@@ -764,9 +842,11 @@ fn builtin_error(args: &[Value]) -> SusumuResult<Value> {
 // Maybe/Result type check functions
 fn builtin_is_some(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_some requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_some requires exactly 1 argument",
+        ));
     }
-    
+
     match &args[0] {
         Value::Object(obj) => {
             if let Some(Value::String(type_str)) = obj.get("type") {
@@ -775,15 +855,17 @@ fn builtin_is_some(args: &[Value]) -> SusumuResult<Value> {
                 Ok(json!(false))
             }
         }
-        _ => Ok(json!(false))
+        _ => Ok(json!(false)),
     }
 }
 
 fn builtin_is_none(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_none requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_none requires exactly 1 argument",
+        ));
     }
-    
+
     match &args[0] {
         Value::Object(obj) => {
             if let Some(Value::String(type_str)) = obj.get("type") {
@@ -792,15 +874,17 @@ fn builtin_is_none(args: &[Value]) -> SusumuResult<Value> {
                 Ok(json!(false))
             }
         }
-        _ => Ok(json!(false))
+        _ => Ok(json!(false)),
     }
 }
 
 fn builtin_is_success(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_success requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_success requires exactly 1 argument",
+        ));
     }
-    
+
     match &args[0] {
         Value::Object(obj) => {
             if let Some(Value::String(type_str)) = obj.get("type") {
@@ -809,15 +893,17 @@ fn builtin_is_success(args: &[Value]) -> SusumuResult<Value> {
                 Ok(json!(false))
             }
         }
-        _ => Ok(json!(false))
+        _ => Ok(json!(false)),
     }
 }
 
 fn builtin_is_error(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("is_error requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "is_error requires exactly 1 argument",
+        ));
     }
-    
+
     match &args[0] {
         Value::Object(obj) => {
             if let Some(Value::String(type_str)) = obj.get("type") {
@@ -826,16 +912,18 @@ fn builtin_is_error(args: &[Value]) -> SusumuResult<Value> {
                 Ok(json!(false))
             }
         }
-        _ => Ok(json!(false))
+        _ => Ok(json!(false)),
     }
 }
 
 // Value extraction functions
 fn builtin_unwrap(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
-        return Err(SusumuError::function_call_error("unwrap requires exactly 1 argument"));
+        return Err(SusumuError::function_call_error(
+            "unwrap requires exactly 1 argument",
+        ));
     }
-    
+
     match &args[0] {
         Value::Object(obj) => {
             if let Some(Value::String(type_str)) = obj.get("type") {
@@ -849,21 +937,29 @@ fn builtin_unwrap(args: &[Value]) -> SusumuResult<Value> {
                     }
                     "none" => Err(SusumuError::runtime_error("Cannot unwrap none")),
                     "error" => Err(SusumuError::runtime_error("Cannot unwrap error")),
-                    _ => Err(SusumuError::runtime_error("Cannot unwrap: not a Maybe or Result type"))
+                    _ => Err(SusumuError::runtime_error(
+                        "Cannot unwrap: not a Maybe or Result type",
+                    )),
                 }
             } else {
-                Err(SusumuError::runtime_error("Cannot unwrap: not a Maybe or Result type"))
+                Err(SusumuError::runtime_error(
+                    "Cannot unwrap: not a Maybe or Result type",
+                ))
             }
         }
-        _ => Err(SusumuError::runtime_error("Cannot unwrap: not a Maybe or Result type"))
+        _ => Err(SusumuError::runtime_error(
+            "Cannot unwrap: not a Maybe or Result type",
+        )),
     }
 }
 
 fn builtin_unwrap_or(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
-        return Err(SusumuError::function_call_error("unwrap_or requires exactly 2 arguments"));
+        return Err(SusumuError::function_call_error(
+            "unwrap_or requires exactly 2 arguments",
+        ));
     }
-    
+
     match &args[0] {
         Value::Object(obj) => {
             if let Some(Value::String(type_str)) = obj.get("type") {
@@ -876,13 +972,13 @@ fn builtin_unwrap_or(args: &[Value]) -> SusumuResult<Value> {
                         }
                     }
                     "none" | "error" => Ok(args[1].clone()), // Return default value
-                    _ => Ok(args[1].clone()) // Not Maybe/Result, return default
+                    _ => Ok(args[1].clone()),                // Not Maybe/Result, return default
                 }
             } else {
                 Ok(args[1].clone()) // Not Maybe/Result, return default
             }
         }
-        _ => Ok(args[1].clone()) // Not Maybe/Result, return default
+        _ => Ok(args[1].clone()), // Not Maybe/Result, return default
     }
 }
 
@@ -891,8 +987,9 @@ fn builtin_combine(args: &[Value]) -> SusumuResult<Value> {
     if args.is_empty() {
         return Ok(json!(""));
     }
-    
-    let combined = args.iter()
+
+    let combined = args
+        .iter()
         .map(|v| match v {
             Value::String(s) => s.clone(),
             Value::Number(n) => n.to_string(),
@@ -903,6 +1000,6 @@ fn builtin_combine(args: &[Value]) -> SusumuResult<Value> {
         })
         .collect::<Vec<String>>()
         .join("");
-    
+
     Ok(json!(combined))
 }

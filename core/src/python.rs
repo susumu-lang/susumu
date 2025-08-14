@@ -1,16 +1,16 @@
 //! Python FFI bridge for Susumu using PyO3
-//! 
+//!
 //! Provides a Python API for executing Susumu code with full debugging capabilities.
 
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use pyo3::exceptions::PyRuntimeError;
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::{Lexer, Parser, Interpreter};
-use crate::interpreter::{ExecutionTrace, PerformanceStats};
 use crate::error::SusumuError;
+use crate::interpreter::{ExecutionTrace, PerformanceStats};
+use crate::{Interpreter, Lexer, Parser};
 
 /// Python exception for Susumu errors
 #[derive(Debug)]
@@ -134,11 +134,11 @@ impl SusumuEngine {
     /// Execute Susumu code and return result
     fn execute(&mut self, py: Python, source: &str) -> PyResult<ExecutionResult> {
         let start_time = std::time::Instant::now();
-        
+
         match self.execute_internal(source) {
             Ok(result) => {
                 let execution_time = start_time.elapsed().as_secs_f64() * 1000.0;
-                
+
                 Ok(ExecutionResult {
                     success: true,
                     result: json_to_python(py, &result)?,
@@ -148,7 +148,7 @@ impl SusumuEngine {
             }
             Err(e) => {
                 let execution_time = start_time.elapsed().as_secs_f64() * 1000.0;
-                
+
                 Ok(ExecutionResult {
                     success: false,
                     result: py.None(),
@@ -160,41 +160,45 @@ impl SusumuEngine {
     }
 
     /// Execute with full debugging information
-    fn execute_with_debug(&mut self, py: Python, source: &str) -> PyResult<(ExecutionResult, Option<DebugInfo>)> {
+    fn execute_with_debug(
+        &mut self,
+        py: Python,
+        source: &str,
+    ) -> PyResult<(ExecutionResult, Option<DebugInfo>)> {
         let start_time = std::time::Instant::now();
-        
+
         match self.execute_internal(source) {
             Ok(result) => {
                 let execution_time = start_time.elapsed().as_secs_f64() * 1000.0;
                 let traces = self.interpreter.get_execution_traces();
                 let stats = self.interpreter.get_performance_stats();
                 let flow_diagram = self.interpreter.generate_execution_diagram();
-                
+
                 let debug_info = DebugInfo {
                     execution_traces: traces.iter().map(|t| self.format_trace(t)).collect(),
                     performance_stats: self.format_performance_stats(py, stats)?,
                     flow_diagram,
                 };
-                
+
                 let exec_result = ExecutionResult {
                     success: true,
                     result: json_to_python(py, &result)?,
                     error: None,
                     execution_time_ms: execution_time,
                 };
-                
+
                 Ok((exec_result, Some(debug_info)))
             }
             Err(e) => {
                 let execution_time = start_time.elapsed().as_secs_f64() * 1000.0;
-                
+
                 let exec_result = ExecutionResult {
                     success: false,
                     result: py.None(),
                     error: Some(e.to_string()),
                     execution_time_ms: execution_time,
                 };
-                
+
                 Ok((exec_result, None))
             }
         }
@@ -203,12 +207,10 @@ impl SusumuEngine {
     /// Check syntax without executing
     fn check_syntax(&self, source: &str) -> PyResult<(bool, Option<String>)> {
         match Lexer::new(source).tokenize() {
-            Ok(tokens) => {
-                match Parser::new(tokens).parse() {
-                    Ok(_) => Ok((true, None)),
-                    Err(e) => Ok((false, Some(e.to_string()))),
-                }
-            }
+            Ok(tokens) => match Parser::new(tokens).parse() {
+                Ok(_) => Ok((true, None)),
+                Err(e) => Ok((false, Some(e.to_string()))),
+            },
             Err(e) => Ok((false, Some(e.to_string()))),
         }
     }
@@ -227,7 +229,8 @@ impl SusumuEngine {
     }
 
     fn format_trace(&self, trace: &ExecutionTrace) -> String {
-        format!("{}: {} -> {}", 
+        format!(
+            "{}: {} -> {}",
             trace.expression,
             self.value_to_string(&trace.input_value),
             self.value_to_string(&trace.output_value)
@@ -262,11 +265,13 @@ impl SusumuEngine {
 fn execute(py: Python, source: &str) -> PyResult<PyObject> {
     let mut engine = SusumuEngine::new();
     let result = engine.execute(py, source)?;
-    
+
     if result.success {
         Ok(result.result)
     } else {
-        Err(PyRuntimeError::new_err(result.error.unwrap_or_else(|| "Unknown error".to_string())))
+        Err(PyRuntimeError::new_err(
+            result.error.unwrap_or_else(|| "Unknown error".to_string()),
+        ))
     }
 }
 
@@ -286,10 +291,10 @@ fn susumu(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SusumuEngine>()?;
     m.add_class::<ExecutionResult>()?;
     m.add_class::<DebugInfo>()?;
-    
+
     // Add version info
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("__doc__", "Susumu arrow-flow programming language")?;
-    
+
     Ok(())
 }

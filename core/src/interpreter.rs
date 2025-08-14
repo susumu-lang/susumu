@@ -1,7 +1,7 @@
 //! Interpreter for Susumu with visual debugging and type safety
 
 use crate::ast::*;
-use crate::builtins::{BuiltinRegistry, value_to_display_string};
+use crate::builtins::{value_to_display_string, BuiltinRegistry};
 use crate::environment::{Environment, EnvironmentManager};
 use crate::error::{SusumuError, SusumuResult};
 use serde_json::Value;
@@ -42,13 +42,31 @@ pub struct ExecutionTrace {
 
 #[derive(Debug, Clone)]
 pub enum ExecutionStepType {
-    ArrowForward { from: String, to: String },
-    ArrowBackward { from: String, to: String },
-    FunctionCall { name: String, args: Vec<Value> },
-    Conditional { branch: String, condition_result: bool },
-    Assignment { variable: String },
-    Return { value: Value },
-    Error { error: Value },
+    ArrowForward {
+        from: String,
+        to: String,
+    },
+    ArrowBackward {
+        from: String,
+        to: String,
+    },
+    FunctionCall {
+        name: String,
+        args: Vec<Value>,
+    },
+    Conditional {
+        branch: String,
+        condition_result: bool,
+    },
+    Assignment {
+        variable: String,
+    },
+    Return {
+        value: Value,
+    },
+    Error {
+        error: Value,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -70,7 +88,7 @@ impl Interpreter {
             execution_traces: Vec::new(),
             performance_stats: PerformanceStats::default(),
         };
-        
+
         interpreter.setup_global_environment();
         interpreter
     }
@@ -78,7 +96,7 @@ impl Interpreter {
     /// Execute a program and return the result
     pub fn execute(&mut self, program: &Program) -> SusumuResult<Value> {
         let start_time = self.get_current_time();
-        
+
         // Register all functions
         for func_def in &program.functions {
             // println!("DEBUG: Registering function: {}", func_def.name);
@@ -99,7 +117,7 @@ impl Interpreter {
         };
 
         self.performance_stats.total_execution_time_ns = self.elapsed_time_ns(start_time);
-        
+
         result
     }
 
@@ -116,34 +134,55 @@ impl Interpreter {
     /// Generate visual execution flow diagram
     pub fn generate_execution_diagram(&self) -> String {
         let mut diagram = String::new();
-        
+
         diagram.push_str("Execution Flow Diagram:\n");
         diagram.push_str("======================\n\n");
-        
+
         for (i, trace) in self.execution_traces.iter().enumerate() {
             match &trace.step_type {
                 ExecutionStepType::ArrowForward { from, to } => {
                     diagram.push_str(&format!("{}. {} -> {}\n", i + 1, from, to));
-                    diagram.push_str(&format!("   Input:  {}\n", self.value_to_string(&trace.input_value)));
-                    diagram.push_str(&format!("   Output: {}\n", self.value_to_string(&trace.output_value)));
+                    diagram.push_str(&format!(
+                        "   Input:  {}\n",
+                        self.value_to_string(&trace.input_value)
+                    ));
+                    diagram.push_str(&format!(
+                        "   Output: {}\n",
+                        self.value_to_string(&trace.output_value)
+                    ));
                     diagram.push_str(&format!("   Time:   {}ns\n", trace.execution_time_ns));
                 }
                 ExecutionStepType::ArrowBackward { from, to } => {
                     diagram.push_str(&format!("{}. {} <- {}\n", i + 1, to, from));
-                    diagram.push_str(&format!("   Convergent input: {}\n", self.value_to_string(&trace.input_value)));
+                    diagram.push_str(&format!(
+                        "   Convergent input: {}\n",
+                        self.value_to_string(&trace.input_value)
+                    ));
                 }
                 ExecutionStepType::FunctionCall { name, args } => {
                     diagram.push_str(&format!("{}. {}(", i + 1, name));
                     for (j, arg) in args.iter().enumerate() {
-                        if j > 0 { diagram.push_str(", "); }
+                        if j > 0 {
+                            diagram.push_str(", ");
+                        }
                         diagram.push_str(&self.value_to_string(arg));
                     }
                     diagram.push_str(")\n");
-                    diagram.push_str(&format!("   Result: {}\n", self.value_to_string(&trace.output_value)));
+                    diagram.push_str(&format!(
+                        "   Result: {}\n",
+                        self.value_to_string(&trace.output_value)
+                    ));
                 }
-                ExecutionStepType::Conditional { branch, condition_result } => {
-                    diagram.push_str(&format!("{}. Conditional: {} ({})\n", 
-                        i + 1, branch, if *condition_result { "true" } else { "false" }));
+                ExecutionStepType::Conditional {
+                    branch,
+                    condition_result,
+                } => {
+                    diagram.push_str(&format!(
+                        "{}. Conditional: {} ({})\n",
+                        i + 1,
+                        branch,
+                        if *condition_result { "true" } else { "false" }
+                    ));
                 }
                 _ => {
                     diagram.push_str(&format!("{}. {}\n", i + 1, trace.expression));
@@ -151,20 +190,35 @@ impl Interpreter {
             }
             diagram.push('\n');
         }
-        
+
         diagram.push_str(&format!("Performance Summary:\n"));
-        diagram.push_str(&format!("  Total expressions: {}\n", self.performance_stats.total_expressions_evaluated));
-        diagram.push_str(&format!("  Total time: {}ms\n", self.performance_stats.total_execution_time_ns / 1_000_000));
-        diagram.push_str(&format!("  Arrow chains: {}\n", self.performance_stats.arrow_chain_count));
-        diagram.push_str(&format!("  Function calls: {}\n", self.performance_stats.function_call_count));
-        diagram.push_str(&format!("  Convergence ops: {}\n", self.performance_stats.convergence_operations));
-        
+        diagram.push_str(&format!(
+            "  Total expressions: {}\n",
+            self.performance_stats.total_expressions_evaluated
+        ));
+        diagram.push_str(&format!(
+            "  Total time: {}ms\n",
+            self.performance_stats.total_execution_time_ns / 1_000_000
+        ));
+        diagram.push_str(&format!(
+            "  Arrow chains: {}\n",
+            self.performance_stats.arrow_chain_count
+        ));
+        diagram.push_str(&format!(
+            "  Function calls: {}\n",
+            self.performance_stats.function_call_count
+        ));
+        diagram.push_str(&format!(
+            "  Convergence ops: {}\n",
+            self.performance_stats.convergence_operations
+        ));
+
         diagram
     }
 
     fn setup_global_environment(&mut self) {
         let global = self.env_manager.global();
-        
+
         // Register built-in functions as callable values
         for func_name in self.builtins.function_names() {
             global.define(func_name, Value::String("builtin_function".to_string()));
@@ -181,11 +235,11 @@ impl Interpreter {
     fn evaluate_with_debugging(&mut self, expr: &Expression) -> SusumuResult<Value> {
         let start_time = self.get_current_time();
         self.performance_stats.total_expressions_evaluated += 1;
-        
+
         let result = self.evaluate(expr, &self.env_manager.current());
-        
+
         let execution_time = self.elapsed_time_ns(start_time);
-        
+
         // Add execution trace for visual debugging
         let trace = ExecutionTrace {
             expression: self.expression_to_debug_string(expr),
@@ -200,7 +254,7 @@ impl Interpreter {
             },
         };
         self.execution_traces.push(trace);
-        
+
         result
     }
 
@@ -210,25 +264,23 @@ impl Interpreter {
             Expression::String(s) => Ok(Value::String(s.clone())),
             Expression::Boolean(b) => Ok(Value::Bool(*b)),
             Expression::Null => Ok(Value::Null),
-            
-            Expression::Identifier(name) => {
-                env.get(name).map_err(|_| SusumuError::undefined_variable(name))
-            }
-            
+
+            Expression::Identifier(name) => env
+                .get(name)
+                .map_err(|_| SusumuError::undefined_variable(name)),
+
             Expression::Tuple(elements) => {
-                let values: Result<Vec<_>, _> = elements.iter()
-                    .map(|e| self.evaluate(e, env))
-                    .collect();
+                let values: Result<Vec<_>, _> =
+                    elements.iter().map(|e| self.evaluate(e, env)).collect();
                 Ok(Value::Array(values?))
             }
-            
+
             Expression::Array(elements) => {
-                let values: Result<Vec<_>, _> = elements.iter()
-                    .map(|e| self.evaluate(e, env))
-                    .collect();
+                let values: Result<Vec<_>, _> =
+                    elements.iter().map(|e| self.evaluate(e, env)).collect();
                 Ok(Value::Array(values?))
             }
-            
+
             Expression::Object(pairs) => {
                 let mut object = serde_json::Map::new();
                 for (key, value_expr) in pairs {
@@ -237,33 +289,47 @@ impl Interpreter {
                 }
                 Ok(Value::Object(object))
             }
-            
-            Expression::ArrowChain { expressions, directions } => {
-                self.evaluate_arrow_chain_with_debugging(expressions, directions, env)
-            }
-            
+
+            Expression::ArrowChain {
+                expressions,
+                directions,
+            } => self.evaluate_arrow_chain_with_debugging(expressions, directions, env),
+
             Expression::FunctionCall { name, args } => {
                 self.evaluate_function_call_with_debugging(name, args, env)
             }
-            
-            Expression::Conditional { condition_type, condition, then_branch, else_if_branches, else_branch } => {
-                self.evaluate_conditional_with_debugging(condition_type, condition, then_branch, else_if_branches, else_branch, env)
-            }
-            
+
+            Expression::Conditional {
+                condition_type,
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => self.evaluate_conditional_with_debugging(
+                condition_type,
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+                env,
+            ),
+
             Expression::Return(value) => {
                 let val = self.evaluate(value, env)?;
                 Err(SusumuError::return_value(val))
             }
-            
+
             Expression::Error(value) => {
                 let val = self.evaluate(value, env)?;
                 Err(SusumuError::user_error(val))
             }
-            
-            Expression::ForEach { variable, iterable, body } => {
-                self.evaluate_foreach_with_debugging(variable, iterable, body, env)
-            }
-            
+
+            Expression::ForEach {
+                variable,
+                iterable,
+                body,
+            } => self.evaluate_foreach_with_debugging(variable, iterable, body, env),
+
             Expression::Block(expressions) => {
                 let mut result = Value::Null;
                 for expr in expressions {
@@ -276,36 +342,41 @@ impl Interpreter {
                 self.evaluate_match_with_debugging(expr, cases, env)
             }
 
-            Expression::Maybe { value } => {
-                match value {
-                    Some(v) => {
-                        let val = self.evaluate(v, env)?;
-                        Ok(Value::Object({
-                            let mut map = serde_json::Map::new();
-                            map.insert("type".to_string(), Value::String("some".to_string()));
-                            map.insert("value".to_string(), val);
-                            map
-                        }))
-                    }
-                    None => Ok(Value::Object({
+            Expression::Maybe { value } => match value {
+                Some(v) => {
+                    let val = self.evaluate(v, env)?;
+                    Ok(Value::Object({
                         let mut map = serde_json::Map::new();
-                        map.insert("type".to_string(), Value::String("none".to_string()));
+                        map.insert("type".to_string(), Value::String("some".to_string()));
+                        map.insert("value".to_string(), val);
                         map
                     }))
                 }
-            }
+                None => Ok(Value::Object({
+                    let mut map = serde_json::Map::new();
+                    map.insert("type".to_string(), Value::String("none".to_string()));
+                    map
+                })),
+            },
 
             Expression::Result { is_success, value } => {
                 let val = self.evaluate(value, env)?;
                 Ok(Value::Object({
                     let mut map = serde_json::Map::new();
-                    map.insert("type".to_string(), Value::String(if *is_success { "success" } else { "error" }.to_string()));
+                    map.insert(
+                        "type".to_string(),
+                        Value::String(if *is_success { "success" } else { "error" }.to_string()),
+                    );
                     map.insert("value".to_string(), val);
                     map
                 }))
             }
 
-            Expression::Assignment { target, value, mutable: _ } => {
+            Expression::Assignment {
+                target,
+                value,
+                mutable: _,
+            } => {
                 let val = self.evaluate(value, env)?;
                 // Use define to create the variable if it doesn't exist
                 // This allows assignments to create new variables
@@ -316,22 +387,25 @@ impl Interpreter {
             Expression::PropertyAccess { object, property } => {
                 let obj = self.evaluate(object, env)?;
                 Ok(match obj {
-                    Value::Object(map) => {
-                        map.get(property).cloned().unwrap_or(Value::Null)
-                    }
-                    _ => Value::Null
+                    Value::Object(map) => map.get(property).cloned().unwrap_or(Value::Null),
+                    _ => Value::Null,
                 })
             }
 
-            Expression::BinaryOp { left, operator, right } => {
+            Expression::BinaryOp {
+                left,
+                operator,
+                right,
+            } => {
                 let left_val = self.evaluate(left, env)?;
                 let right_val = self.evaluate(right, env)?;
                 self.evaluate_binary_op(&left_val, operator, &right_val)
             }
 
-            Expression::Annotated { annotation, expression } => {
-                self.evaluate_annotated_expression(annotation, expression, env)
-            }
+            Expression::Annotated {
+                annotation,
+                expression,
+            } => self.evaluate_annotated_expression(annotation, expression, env),
         }
     }
 
@@ -348,10 +422,11 @@ impl Interpreter {
                 let start_time = self.get_current_time();
                 let result = self.evaluate(expression, env);
                 let end_time = self.get_current_time();
-                
+
                 match &result {
-                    Ok(value) => println!("✅ TRACE [{}]: Completed in {}ns -> {}", 
-                        trace_name, 
+                    Ok(value) => println!(
+                        "✅ TRACE [{}]: Completed in {}ns -> {}",
+                        trace_name,
                         self.calculate_duration(start_time, end_time),
                         value_to_display_string(value)
                     ),
@@ -364,12 +439,14 @@ impl Interpreter {
                 let result = self.evaluate(expression, env);
                 let end_time = self.get_current_time();
                 let duration = self.calculate_duration(start_time, end_time);
-                
+
                 for metric in metrics {
                     match metric.as_str() {
                         "latency" => println!("⏱️  MONITOR latency: {}ns", duration),
-                        "errors" => if result.is_err() {
-                            println!("🚨 MONITOR errors: execution failed");
+                        "errors" => {
+                            if result.is_err() {
+                                println!("🚨 MONITOR errors: execution failed");
+                            }
                         }
                         "memory" => println!("💾 MONITOR memory: tracking not yet implemented"),
                         _ => println!("📊 MONITOR {}: tracking not yet implemented", metric),
@@ -389,27 +466,31 @@ impl Interpreter {
             }
             Annotation::Debug(label) => {
                 match label {
-                    Some(checkpoint) => println!("🐞 DEBUG [{}]: Starting debug checkpoint", checkpoint),
+                    Some(checkpoint) => {
+                        println!("🐞 DEBUG [{}]: Starting debug checkpoint", checkpoint)
+                    }
                     None => println!("🐞 DEBUG: Starting debug execution"),
                 }
-                
+
                 // Add detailed debugging
                 println!("   Expression: {:?}", expression);
                 let result = self.evaluate(expression, env);
-                
+
                 match &result {
-                    Ok(value) => {
-                        match label {
-                            Some(checkpoint) => println!("🐞 DEBUG [{}]: Result -> {}", checkpoint, value_to_display_string(value)),
-                            None => println!("🐞 DEBUG: Result -> {}", value_to_display_string(value)),
+                    Ok(value) => match label {
+                        Some(checkpoint) => println!(
+                            "🐞 DEBUG [{}]: Result -> {}",
+                            checkpoint,
+                            value_to_display_string(value)
+                        ),
+                        None => println!("🐞 DEBUG: Result -> {}", value_to_display_string(value)),
+                    },
+                    Err(error) => match label {
+                        Some(checkpoint) => {
+                            println!("🐞 DEBUG [{}]: Error -> {}", checkpoint, error)
                         }
-                    }
-                    Err(error) => {
-                        match label {
-                            Some(checkpoint) => println!("🐞 DEBUG [{}]: Error -> {}", checkpoint, error),
-                            None => println!("🐞 DEBUG: Error -> {}", error),
-                        }
-                    }
+                        None => println!("🐞 DEBUG: Error -> {}", error),
+                    },
                 }
                 result
             }
@@ -417,13 +498,13 @@ impl Interpreter {
     }
 
     fn evaluate_arrow_chain_with_debugging(
-        &mut self, 
-        expressions: &[Expression], 
-        directions: &[ArrowDirection], 
-        env: &Arc<Environment>
+        &mut self,
+        expressions: &[Expression],
+        directions: &[ArrowDirection],
+        env: &Arc<Environment>,
     ) -> SusumuResult<Value> {
         self.performance_stats.arrow_chain_count += 1;
-        
+
         if expressions.is_empty() {
             return Ok(Value::Null);
         }
@@ -464,23 +545,25 @@ impl Interpreter {
                                 let env_clone = env.clone();
                                 let env_manager_clone = self.env_manager.clone();
                                 let builtins_clone = self.builtins.clone();
-                                
-                                let convergent_results: Result<Vec<Value>, SusumuError> = convergent_expressions
-                                    .par_iter()
-                                    .map(|expr| {
-                                        // Each thread gets its own interpreter instance with shared state
-                                        let mut temp_interpreter = Interpreter::new();
-                                        temp_interpreter.env_manager = env_manager_clone.clone();
-                                        temp_interpreter.builtins = builtins_clone.clone();
-                                        temp_interpreter.evaluate(expr, &env_clone)
-                                    })
-                                    .collect();
-                                
+
+                                let convergent_results: Result<Vec<Value>, SusumuError> =
+                                    convergent_expressions
+                                        .par_iter()
+                                        .map(|expr| {
+                                            // Each thread gets its own interpreter instance with shared state
+                                            let mut temp_interpreter = Interpreter::new();
+                                            temp_interpreter.env_manager =
+                                                env_manager_clone.clone();
+                                            temp_interpreter.builtins = builtins_clone.clone();
+                                            temp_interpreter.evaluate(expr, &env_clone)
+                                        })
+                                        .collect();
+
                                 match convergent_results {
                                     Ok(results) => args.extend(results),
                                     Err(e) => return Err(e),
                                 }
-                                
+
                                 self.performance_stats.parallel_operations += 1;
                             } else {
                                 // Single or no convergent arguments
@@ -490,7 +573,7 @@ impl Interpreter {
                                 }
                             }
                         }
-                        
+
                         #[cfg(not(feature = "parallel"))]
                         {
                             // Sequential evaluation fallback
@@ -517,7 +600,7 @@ impl Interpreter {
                         };
 
                         result = self.call_function_with_args(func_name, &args, env)?;
-                        
+
                         // Update trace with result
                         if let Some(last_trace) = self.execution_traces.last_mut() {
                             last_trace.output_value = result.clone();
@@ -538,19 +621,26 @@ impl Interpreter {
                             }
                         }
                         i += 1;
-                    } else if let Expression::Conditional { condition_type, condition, then_branch, else_if_branches, else_branch } = current_expr {
+                    } else if let Expression::Conditional {
+                        condition_type,
+                        condition,
+                        then_branch,
+                        else_if_branches,
+                        else_branch,
+                    } = current_expr
+                    {
                         // Special handling for conditional expressions in arrow chains
                         // Use the current arrow chain result as the condition
                         if let Expression::Null = **condition {
                             // This is a conditional from an arrow chain (placeholder condition)
                             // Use the current result as the condition
                             result = self.evaluate_conditional_with_arrow_result(
-                                condition_type, 
-                                &result, 
-                                then_branch, 
-                                else_if_branches, 
-                                else_branch, 
-                                env
+                                condition_type,
+                                &result,
+                                then_branch,
+                                else_if_branches,
+                                else_branch,
+                                env,
                             )?;
                         } else {
                             // Normal conditional evaluation
@@ -582,22 +672,18 @@ impl Interpreter {
         then_branch: &Expression,
         else_if_branches: &Vec<ElseIfBranch>,
         else_branch: &Option<Box<Expression>>,
-        env: &Arc<Environment>
+        env: &Arc<Environment>,
     ) -> SusumuResult<Value> {
         let mut branch_name = "none";
         let result;
 
         // Check main condition using arrow result
         let branch_taken = match condition_type {
-            ConditionType::Success => {
-                !matches!(arrow_result, Value::Null)
-            }
+            ConditionType::Success => !matches!(arrow_result, Value::Null),
             ConditionType::Custom(condition_name) => {
                 self.evaluate_custom_condition(condition_name, arrow_result)?
             }
-            ConditionType::If => {
-                self.is_truthy(arrow_result)
-            }
+            ConditionType::If => self.is_truthy(arrow_result),
         };
 
         if branch_taken {
@@ -607,7 +693,7 @@ impl Interpreter {
             // Check else-if branches
             let mut else_if_taken = false;
             let mut else_if_result = Value::Null;
-            
+
             for else_if_branch in else_if_branches {
                 let else_if_condition_result = match &else_if_branch.condition_type {
                     ConditionType::Success => !matches!(arrow_result, Value::Null),
@@ -616,7 +702,7 @@ impl Interpreter {
                     }
                     ConditionType::If => self.is_truthy(arrow_result),
                 };
-                
+
                 if else_if_condition_result {
                     else_if_result = self.evaluate(&else_if_branch.then_branch, env)?;
                     else_if_taken = true;
@@ -624,7 +710,7 @@ impl Interpreter {
                     break;
                 }
             }
-            
+
             if else_if_taken {
                 result = else_if_result;
             } else if let Some(else_expr) = else_branch {
@@ -657,13 +743,12 @@ impl Interpreter {
         &mut self,
         name: &str,
         args: &[Expression],
-        env: &Arc<Environment>
+        env: &Arc<Environment>,
     ) -> SusumuResult<Value> {
         self.performance_stats.function_call_count += 1;
-        
-        let arg_values: Result<Vec<_>, _> = args.iter()
-            .map(|arg| self.evaluate(arg, env))
-            .collect();
+
+        let arg_values: Result<Vec<_>, _> =
+            args.iter().map(|arg| self.evaluate(arg, env)).collect();
         let arg_values = arg_values?;
 
         let trace = ExecutionTrace {
@@ -690,7 +775,7 @@ impl Interpreter {
         then_branch: &Expression,
         else_if_branches: &Vec<ElseIfBranch>,
         else_branch: &Option<Box<Expression>>,
-        env: &Arc<Environment>
+        env: &Arc<Environment>,
     ) -> SusumuResult<Value> {
         let condition_value = self.evaluate(condition, env)?;
         let mut branch_name = "none";
@@ -698,15 +783,11 @@ impl Interpreter {
 
         // Check main condition
         let branch_taken = match condition_type {
-            ConditionType::Success => {
-                !matches!(condition_value, Value::Null)
-            }
+            ConditionType::Success => !matches!(condition_value, Value::Null),
             ConditionType::Custom(condition_name) => {
                 self.evaluate_custom_condition(condition_name, &condition_value)?
             }
-            ConditionType::If => {
-                self.is_truthy(&condition_value)
-            }
+            ConditionType::If => self.is_truthy(&condition_value),
         };
 
         if branch_taken {
@@ -716,7 +797,7 @@ impl Interpreter {
             // Check else-if branches
             let mut else_if_taken = false;
             let mut else_if_result = Value::Null;
-            
+
             for else_if_branch in else_if_branches {
                 let else_if_condition_result = match &else_if_branch.condition_type {
                     ConditionType::Success => !matches!(condition_value, Value::Null),
@@ -725,7 +806,7 @@ impl Interpreter {
                     }
                     ConditionType::If => self.is_truthy(&condition_value),
                 };
-                
+
                 if else_if_condition_result {
                     else_if_result = self.evaluate(&else_if_branch.then_branch, env)?;
                     else_if_taken = true;
@@ -733,7 +814,7 @@ impl Interpreter {
                     break;
                 }
             }
-            
+
             if else_if_taken {
                 result = else_if_result;
             } else if let Some(else_expr) = else_branch {
@@ -766,31 +847,39 @@ impl Interpreter {
         variable: &str,
         iterable: &Expression,
         body: &Expression,
-        env: &Arc<Environment>
+        env: &Arc<Environment>,
     ) -> SusumuResult<Value> {
         let iterable_value = self.evaluate(iterable, env)?;
-        
+
         match iterable_value {
             Value::Array(items) => {
                 let mut results = Vec::new();
-                
+
                 for item in items {
                     // Create new scope for loop iteration
                     let new_scope = self.env_manager.push_scope();
                     new_scope.define(variable.to_string(), item.clone());
                     let loop_result = self.evaluate(body, &new_scope)?;
                     self.env_manager.pop_scope()?;
-                    
+
                     results.push(loop_result);
                 }
-                
+
                 Ok(Value::Array(results))
             }
-            _ => Err(SusumuError::type_error("array", &format!("{:?}", iterable_value))),
+            _ => Err(SusumuError::type_error(
+                "array",
+                &format!("{:?}", iterable_value),
+            )),
         }
     }
 
-    fn call_function_with_args(&mut self, name: &str, args: &[Value], env: &Arc<Environment>) -> SusumuResult<Value> {
+    fn call_function_with_args(
+        &mut self,
+        name: &str,
+        args: &[Value],
+        env: &Arc<Environment>,
+    ) -> SusumuResult<Value> {
         // Try built-in functions first
         if self.builtins.contains(name) {
             return self.builtins.call(name, args);
@@ -805,17 +894,24 @@ impl Interpreter {
         Err(SusumuError::undefined_function(name))
     }
 
-    fn call_user_function(&mut self, func_def: &crate::ast::FunctionDef, args: &[Value], _parent_env: &Arc<Environment>) -> SusumuResult<Value> {
+    fn call_user_function(
+        &mut self,
+        func_def: &crate::ast::FunctionDef,
+        args: &[Value],
+        _parent_env: &Arc<Environment>,
+    ) -> SusumuResult<Value> {
         if args.len() != func_def.params.len() {
-            return Err(SusumuError::function_call_error(
-                &format!("Function {} expects {} arguments, got {}", 
-                        func_def.name, func_def.params.len(), args.len())
-            ));
+            return Err(SusumuError::function_call_error(&format!(
+                "Function {} expects {} arguments, got {}",
+                func_def.name,
+                func_def.params.len(),
+                args.len()
+            )));
         }
 
         // Create new scope for function execution
         let func_scope = self.env_manager.push_scope();
-        
+
         // Bind parameters to arguments
         for (param, arg) in func_def.params.iter().zip(args.iter()) {
             func_scope.define(param.clone(), arg.clone());
@@ -827,7 +923,7 @@ impl Interpreter {
             Err(SusumuError::ReturnValue { value }) => Ok(value),
             Err(other) => Err(other),
         };
-        
+
         self.env_manager.pop_scope()?;
         result
     }
@@ -877,10 +973,13 @@ impl Interpreter {
             Expression::String(s) => format!("\"{}\"", s),
             Expression::Boolean(b) => b.to_string(),
             Expression::Null => "null".to_string(),
-            Expression::ArrowChain { expressions, directions } => {
+            Expression::ArrowChain {
+                expressions,
+                directions,
+            } => {
                 let mut result = String::new();
                 result.push_str(&self.expression_to_debug_string(&expressions[0]));
-                
+
                 for (i, direction) in directions.iter().enumerate() {
                     let arrow = match direction {
                         ArrowDirection::Forward => " -> ",
@@ -917,7 +1016,7 @@ impl Interpreter {
     #[cfg(target_arch = "wasm32")]
     fn elapsed_time_ns(&self, start_time: f64) -> u64 {
         let elapsed_ms = Date::now() - start_time;
-        (elapsed_ms * 1_000_000.0) as u64  // Convert ms to ns
+        (elapsed_ms * 1_000_000.0) as u64 // Convert ms to ns
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -928,12 +1027,16 @@ impl Interpreter {
     #[cfg(target_arch = "wasm32")]
     fn calculate_duration(&self, start_time: f64, end_time: f64) -> u64 {
         let elapsed_ms = end_time - start_time;
-        (elapsed_ms * 1_000_000.0) as u64  // Convert ms to ns
+        (elapsed_ms * 1_000_000.0) as u64 // Convert ms to ns
     }
 
     /// Helper function to create JSON numbers that preserve integer type when appropriate
     fn create_number_value(&self, value: f64) -> Value {
-        if value.fract() == 0.0 && value.is_finite() && value >= i64::MIN as f64 && value <= i64::MAX as f64 {
+        if value.fract() == 0.0
+            && value.is_finite()
+            && value >= i64::MIN as f64
+            && value <= i64::MAX as f64
+        {
             // Return as integer if it's a whole number within i64 range
             serde_json::json!(value as i64)
         } else {
@@ -952,7 +1055,7 @@ impl Interpreter {
             Some(e) => {
                 let result = self.evaluate(e, env)?;
                 result
-            },
+            }
             None => {
                 Value::Null // For arrow chain integration
             }
@@ -967,7 +1070,7 @@ impl Interpreter {
                     for (name, val) in &bindings {
                         new_env.set(name, val.clone())?;
                     }
-                    
+
                     let guard_result = self.evaluate(guard, &new_env)?;
                     if !self.is_truthy(&guard_result) {
                         continue;
@@ -992,7 +1095,6 @@ impl Interpreter {
         cases: &[MatchCase],
         env: &Arc<Environment>,
     ) -> SusumuResult<Value> {
-
         for case in cases {
             if let Some(bindings) = self.match_pattern(&case.pattern, value) {
                 // Check guard condition if present
@@ -1002,7 +1104,7 @@ impl Interpreter {
                     for (name, val) in &bindings {
                         new_env.set(name, val.clone())?;
                     }
-                    
+
                     let guard_result = self.evaluate(guard, &new_env)?;
                     if !self.is_truthy(&guard_result) {
                         continue;
@@ -1021,7 +1123,11 @@ impl Interpreter {
         Err(SusumuError::runtime_error("No pattern matched"))
     }
 
-    fn match_pattern(&self, pattern: &Pattern, value: &Value) -> Option<std::collections::HashMap<String, Value>> {
+    fn match_pattern(
+        &self,
+        pattern: &Pattern,
+        value: &Value,
+    ) -> Option<std::collections::HashMap<String, Value>> {
         use std::collections::HashMap;
         let mut bindings = HashMap::new();
 
@@ -1107,26 +1213,28 @@ impl Interpreter {
             (LiteralValue::Number(n1), Value::Number(n2)) => {
                 let n2_f64 = n2.as_f64().unwrap_or(0.0);
                 n1 == &n2_f64
-            },
+            }
             (LiteralValue::String(s1), Value::String(s2)) => s1 == s2,
             (LiteralValue::Boolean(b1), Value::Bool(b2)) => b1 == b2,
             (LiteralValue::Null, Value::Null) => true,
-            _ => {
-                false
-            }
+            _ => false,
         };
         result
     }
 
-
-    fn evaluate_binary_op(&self, left: &Value, operator: &BinaryOperator, right: &Value) -> SusumuResult<Value> {
+    fn evaluate_binary_op(
+        &self,
+        left: &Value,
+        operator: &BinaryOperator,
+        right: &Value,
+    ) -> SusumuResult<Value> {
         use BinaryOperator::*;
-        
+
         match (left, right) {
             (Value::Number(a), Value::Number(b)) => {
                 let a_val = a.as_f64().unwrap_or(0.0);
                 let b_val = b.as_f64().unwrap_or(0.0);
-                
+
                 match operator {
                     Add => Ok(self.create_number_value(a_val + b_val)),
                     Subtract => Ok(self.create_number_value(a_val - b_val)),
@@ -1140,33 +1248,37 @@ impl Interpreter {
                     GreaterEq => Ok(Value::Bool(a_val >= b_val)),
                 }
             }
-            (Value::String(a), Value::String(b)) => {
-                match operator {
-                    Add => Ok(Value::String(format!("{}{}", a, b))),
-                    Equal => Ok(Value::Bool(a == b)),
-                    NotEqual => Ok(Value::Bool(a != b)),
-                    _ => Err(SusumuError::runtime_error(&format!("Unsupported operation {:?} on strings", operator)))
-                }
-            }
-            (Value::String(a), Value::Number(b)) => {
-                match operator {
-                    Add => Ok(Value::String(format!("{}{}", a, self.number_to_string(b)))),
-                    _ => Err(SusumuError::runtime_error(&format!("Unsupported operation {:?} on string and number", operator)))
-                }
-            }
-            (Value::Number(a), Value::String(b)) => {
-                match operator {
-                    Add => Ok(Value::String(format!("{}{}", self.number_to_string(a), b))),
-                    _ => Err(SusumuError::runtime_error(&format!("Unsupported operation {:?} on number and string", operator)))
-                }
-            }
-            _ => {
-                match operator {
-                    Equal => Ok(Value::Bool(format!("{:?}", left) == format!("{:?}", right))),
-                    NotEqual => Ok(Value::Bool(format!("{:?}", left) != format!("{:?}", right))),
-                    _ => Err(SusumuError::runtime_error(&format!("Unsupported operation {:?} on these types", operator)))
-                }
-            }
+            (Value::String(a), Value::String(b)) => match operator {
+                Add => Ok(Value::String(format!("{}{}", a, b))),
+                Equal => Ok(Value::Bool(a == b)),
+                NotEqual => Ok(Value::Bool(a != b)),
+                _ => Err(SusumuError::runtime_error(&format!(
+                    "Unsupported operation {:?} on strings",
+                    operator
+                ))),
+            },
+            (Value::String(a), Value::Number(b)) => match operator {
+                Add => Ok(Value::String(format!("{}{}", a, self.number_to_string(b)))),
+                _ => Err(SusumuError::runtime_error(&format!(
+                    "Unsupported operation {:?} on string and number",
+                    operator
+                ))),
+            },
+            (Value::Number(a), Value::String(b)) => match operator {
+                Add => Ok(Value::String(format!("{}{}", self.number_to_string(a), b))),
+                _ => Err(SusumuError::runtime_error(&format!(
+                    "Unsupported operation {:?} on number and string",
+                    operator
+                ))),
+            },
+            _ => match operator {
+                Equal => Ok(Value::Bool(format!("{:?}", left) == format!("{:?}", right))),
+                NotEqual => Ok(Value::Bool(format!("{:?}", left) != format!("{:?}", right))),
+                _ => Err(SusumuError::runtime_error(&format!(
+                    "Unsupported operation {:?} on these types",
+                    operator
+                ))),
+            },
         }
     }
 
@@ -1203,7 +1315,7 @@ mod tests {
         let tokens = Lexer::new(source).tokenize().unwrap();
         let ast = Parser::new(tokens).parse().unwrap();
         let mut interpreter = Interpreter::new();
-        
+
         let result = interpreter.execute(&ast).unwrap();
         assert_eq!(result, Value::Number(serde_json::Number::from(8)));
     }
@@ -1214,7 +1326,7 @@ mod tests {
         let tokens = Lexer::new(source).tokenize().unwrap();
         let ast = Parser::new(tokens).parse().unwrap();
         let mut interpreter = Interpreter::new();
-        
+
         let result = interpreter.execute(&ast).unwrap();
         assert_eq!(result, Value::Number(serde_json::Number::from(10)));
     }
@@ -1225,12 +1337,12 @@ mod tests {
         let tokens = Lexer::new(source).tokenize().unwrap();
         let ast = Parser::new(tokens).parse().unwrap();
         let mut interpreter = Interpreter::new();
-        
+
         let _result = interpreter.execute(&ast).unwrap();
-        
+
         let traces = interpreter.get_execution_traces();
         assert!(!traces.is_empty());
-        
+
         let diagram = interpreter.generate_execution_diagram();
         assert!(diagram.contains("Execution Flow Diagram"));
         assert!(diagram.contains("Performance Summary"));
@@ -1242,7 +1354,7 @@ mod tests {
         let tokens = Lexer::new(source).tokenize().unwrap();
         let ast = Parser::new(tokens).parse().unwrap();
         let mut interpreter = Interpreter::new();
-        
+
         let result = interpreter.execute(&ast);
         assert!(result.is_ok());
     }

@@ -1,5 +1,5 @@
 //! WASM bindings for Susumu language - browser execution
-//! 
+//!
 //! This module provides JavaScript bindings for running Susumu code in the browser
 //! with full visual debugging and performance monitoring capabilities.
 
@@ -12,10 +12,10 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
-    
+
     #[wasm_bindgen(js_namespace = console)]
     fn warn(s: &str);
-    
+
     #[wasm_bindgen(js_namespace = console)]
     fn error(s: &str);
 }
@@ -79,9 +79,9 @@ impl SusumuEngine {
     pub fn new() -> SusumuEngine {
         // Set panic hook for better error messages in browser
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        
+
         console_log!("🚀 Susumu WASM Engine initialized");
-        
+
         SusumuEngine {
             interpreter: Interpreter::new(),
         }
@@ -91,11 +91,11 @@ impl SusumuEngine {
     #[wasm_bindgen]
     pub fn execute(&mut self, source: &str) -> JsValue {
         let start_time = js_sys::Date::now();
-        
+
         match self.execute_internal(source) {
             Ok(result) => {
                 let execution_time = js_sys::Date::now() - start_time;
-                
+
                 let exec_result = ExecutionResult {
                     success: true,
                     result: serde_json::to_string(&result).unwrap_or_else(|_| "null".to_string()),
@@ -103,12 +103,12 @@ impl SusumuEngine {
                     execution_time_ms: execution_time,
                     debug_info: None,
                 };
-                
+
                 serde_wasm_bindgen::to_value(&exec_result).unwrap_or(JsValue::NULL)
             }
             Err(e) => {
                 let execution_time = js_sys::Date::now() - start_time;
-                
+
                 let exec_result = ExecutionResult {
                     success: false,
                     result: "null".to_string(),
@@ -116,7 +116,7 @@ impl SusumuEngine {
                     execution_time_ms: execution_time,
                     debug_info: None,
                 };
-                
+
                 console_error!("Susumu execution error: {}", e);
                 serde_wasm_bindgen::to_value(&exec_result).unwrap_or(JsValue::NULL)
             }
@@ -127,21 +127,21 @@ impl SusumuEngine {
     #[wasm_bindgen]
     pub fn execute_with_debug(&mut self, source: &str) -> JsValue {
         let start_time = js_sys::Date::now();
-        
+
         match self.execute_internal(source) {
             Ok(result) => {
                 let execution_time = js_sys::Date::now() - start_time;
                 let traces = self.interpreter.get_execution_traces();
                 let stats = self.interpreter.get_performance_stats();
                 let flow_diagram = self.interpreter.generate_execution_diagram();
-                
+
                 let debug_info = DebugInfo {
                     execution_traces: self.format_execution_traces(traces),
                     performance_stats: self.format_performance_stats(stats),
                     flow_diagram,
                     arrow_flow_svg: Some(self.generate_arrow_flow_svg(traces)),
                 };
-                
+
                 let exec_result = ExecutionResult {
                     success: true,
                     result: serde_json::to_string(&result).unwrap_or_else(|_| "null".to_string()),
@@ -149,13 +149,13 @@ impl SusumuEngine {
                     execution_time_ms: execution_time,
                     debug_info: Some(debug_info),
                 };
-                
+
                 console_log!("✅ Susumu execution completed with debug info");
                 serde_wasm_bindgen::to_value(&exec_result).unwrap_or(JsValue::NULL)
             }
             Err(e) => {
                 let execution_time = js_sys::Date::now() - start_time;
-                
+
                 let exec_result = ExecutionResult {
                     success: false,
                     result: "null".to_string(),
@@ -163,7 +163,7 @@ impl SusumuEngine {
                     execution_time_ms: execution_time,
                     debug_info: None,
                 };
-                
+
                 console_error!("❌ Susumu execution error: {}", e);
                 serde_wasm_bindgen::to_value(&exec_result).unwrap_or(JsValue::NULL)
             }
@@ -178,15 +178,21 @@ impl SusumuEngine {
             ("multiply", "Multiply numbers: 5 -> multiply <- 3"),
             ("subtract", "Subtract numbers: 10 -> subtract <- 3"),
             ("divide", "Divide numbers: 15 -> divide <- 3"),
-            ("concat", "Concatenate strings: \"hello\" -> concat <- \" world\""),
-            ("length", "Get length: \"hello\" -> length or [1,2,3] -> length"),
+            (
+                "concat",
+                "Concatenate strings: \"hello\" -> concat <- \" world\"",
+            ),
+            (
+                "length",
+                "Get length: \"hello\" -> length or [1,2,3] -> length",
+            ),
             ("first", "Get first element: [1,2,3] -> first"),
             ("last", "Get last element: [1,2,3] -> last"),
             ("print", "Print values: 42 -> print"),
             ("to_upper", "Convert to uppercase: \"hello\" -> to_upper"),
             ("to_lower", "Convert to lowercase: \"HELLO\" -> to_lower"),
         ];
-        
+
         serde_wasm_bindgen::to_value(&builtins).unwrap_or(JsValue::NULL)
     }
 
@@ -194,24 +200,22 @@ impl SusumuEngine {
     #[wasm_bindgen]
     pub fn check_syntax(&self, source: &str) -> JsValue {
         match Lexer::new(source).tokenize() {
-            Ok(tokens) => {
-                match Parser::new(tokens).parse() {
-                    Ok(_) => {
-                        let result = serde_json::json!({
-                            "valid": true,
-                            "error": null
-                        });
-                        serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
-                    }
-                    Err(e) => {
-                        let result = serde_json::json!({
-                            "valid": false,
-                            "error": e.to_string()
-                        });
-                        serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
-                    }
+            Ok(tokens) => match Parser::new(tokens).parse() {
+                Ok(_) => {
+                    let result = serde_json::json!({
+                        "valid": true,
+                        "error": null
+                    });
+                    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
                 }
-            }
+                Err(e) => {
+                    let result = serde_json::json!({
+                        "valid": false,
+                        "error": e.to_string()
+                    });
+                    serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::NULL)
+                }
+            },
             Err(e) => {
                 let result = serde_json::json!({
                     "valid": false,
@@ -230,7 +234,10 @@ impl SusumuEngine {
 }
 
 impl SusumuEngine {
-    fn execute_internal(&mut self, source: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    fn execute_internal(
+        &mut self,
+        source: &str,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
         let tokens = Lexer::new(source).tokenize()?;
         let ast = Parser::new(tokens).parse()?;
         let result = self.interpreter.execute(&ast)?;
@@ -241,13 +248,13 @@ impl SusumuEngine {
         let mut output = String::new();
         output.push_str("Execution Traces:\n");
         output.push_str("================\n\n");
-        
+
         for (i, trace) in traces.iter().enumerate() {
             output.push_str(&format!("{}. {}\n", i + 1, trace.expression));
             output.push_str(&format!("   Time: {}μs\n", trace.execution_time_ns / 1000));
             output.push_str(&format!("   Result: {:?}\n\n", trace.output_value));
         }
-        
+
         output
     }
 
@@ -278,57 +285,60 @@ impl SusumuEngine {
             .node { fill: #E3F2FD; stroke: #2196F3; stroke-width: 2; }
             .node-text { font-family: 'Arial', sans-serif; font-size: 12px; fill: #1976D2; text-anchor: middle; }
         </style>"#);
-        
+
         let box_width = 120;
         let box_height = 40;
         let spacing = 150;
         let start_y = 50;
-        
+
         for (i, trace) in traces.iter().take(5).enumerate() {
             let x = 50 + i * spacing;
-            
+
             // Draw node box
             svg.push_str(&format!(
                 r#"<rect x="{}" y="{}" width="{}" height="{}" class="node" rx="5"/>"#,
                 x, start_y, box_width, box_height
             ));
-            
+
             // Draw text
             let text = if trace.expression.len() > 15 {
                 format!("{}...", &trace.expression[..12])
             } else {
                 trace.expression.clone()
             };
-            
+
             svg.push_str(&format!(
                 r#"<text x="{}" y="{}" class="node-text">{}</text>"#,
                 x + box_width / 2,
                 start_y + box_height / 2 + 5,
                 text
             ));
-            
+
             // Draw arrow to next node
             if i < traces.len() - 1 && i < 4 {
                 let arrow_start_x = x + box_width;
                 let arrow_end_x = arrow_start_x + spacing - box_width;
                 let arrow_y = start_y + box_height / 2;
-                
+
                 // Arrow line
                 svg.push_str(&format!(
                     r#"<line x1="{}" y1="{}" x2="{}" y2="{}" class="arrow-line"/>"#,
                     arrow_start_x, arrow_y, arrow_end_x, arrow_y
                 ));
-                
+
                 // Arrow head
                 svg.push_str(&format!(
                     r#"<polygon points="{},{} {},{} {},{}" class="arrow-head"/>"#,
-                    arrow_end_x, arrow_y,
-                    arrow_end_x - 10, arrow_y - 5,
-                    arrow_end_x - 10, arrow_y + 5
+                    arrow_end_x,
+                    arrow_y,
+                    arrow_end_x - 10,
+                    arrow_y - 5,
+                    arrow_end_x - 10,
+                    arrow_y + 5
                 ));
             }
         }
-        
+
         svg.push_str("</svg>");
         svg
     }

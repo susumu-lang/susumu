@@ -1,5 +1,5 @@
 //! Susumu Language Server binary
-//! 
+//!
 //! Provides IDE features through the Language Server Protocol
 
 use std::error::Error;

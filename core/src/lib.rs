@@ -1,18 +1,18 @@
 //! Susumu Programming Language - Rust Implementation
-//! 
+//!
 //! A high-performance arrow-flow programming language that makes data transformations
 //! visually explicit through arrow syntax.
 
-pub mod lexer;
-pub mod parser;
-pub mod interpreter;
 pub mod ast;
+pub mod builtins;
 pub mod environment;
 pub mod error;
-pub mod builtins;
+pub mod interpreter;
+pub mod lexer;
+pub mod parser;
+pub mod tests;
 pub mod types;
 pub mod visual_debug;
-pub mod tests;
 
 // #[cfg(feature = "parallel")]
 // pub mod parallel;
@@ -26,7 +26,7 @@ pub mod python;
 #[cfg(feature = "lsp")]
 pub mod lsp;
 
-pub use ast::{Program, Expression, Statement};
+pub use ast::{Expression, Program, Statement};
 pub use error::{SusumuError, SusumuResult};
 pub use interpreter::Interpreter;
 pub use lexer::{Lexer, Token};
@@ -50,7 +50,7 @@ pub fn execute_to_string(source: &str) -> String {
             } else {
                 serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string())
             }
-        },
+        }
         Err(err) => format!("Error: {}", err),
     }
 }
@@ -76,7 +76,7 @@ mod tests {
             }
         }
         "#;
-        
+
         let result = execute(code);
         assert!(result.is_ok());
     }

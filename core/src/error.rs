@@ -15,56 +15,34 @@ pub enum SusumuError {
     },
 
     #[error("Parser error at line {line}: {message}")]
-    ParserError {
-        line: usize,
-        message: String,
-    },
+    ParserError { line: usize, message: String },
 
     #[error("Runtime error: {message}")]
-    RuntimeError {
-        message: String,
-    },
+    RuntimeError { message: String },
 
     #[error("Type error: expected {expected}, found {found}")]
-    TypeError {
-        expected: String,
-        found: String,
-    },
+    TypeError { expected: String, found: String },
 
     #[error("Undefined variable: {name}")]
-    UndefinedVariable {
-        name: String,
-    },
+    UndefinedVariable { name: String },
 
     #[error("Undefined function: {name}")]
-    UndefinedFunction {
-        name: String,
-    },
+    UndefinedFunction { name: String },
 
     #[error("Function call error: {message}")]
-    FunctionCallError {
-        message: String,
-    },
+    FunctionCallError { message: String },
 
     #[error("Arrow chain error: {message}")]
-    ArrowChainError {
-        message: String,
-    },
+    ArrowChainError { message: String },
 
     #[error("User-defined error: {value:?}")]
-    UserError {
-        value: serde_json::Value,
-    },
+    UserError { value: serde_json::Value },
 
     #[error("Return value: {value:?}")]
-    ReturnValue {
-        value: serde_json::Value,
-    },
+    ReturnValue { value: serde_json::Value },
 
     #[error("IO error: {message}")]
-    IoError {
-        message: String,
-    },
+    IoError { message: String },
 }
 
 impl SusumuError {
@@ -97,15 +75,11 @@ impl SusumuError {
     }
 
     pub fn undefined_variable(name: impl Into<String>) -> Self {
-        Self::UndefinedVariable {
-            name: name.into(),
-        }
+        Self::UndefinedVariable { name: name.into() }
     }
 
     pub fn undefined_function(name: impl Into<String>) -> Self {
-        Self::UndefinedFunction {
-            name: name.into(),
-        }
+        Self::UndefinedFunction { name: name.into() }
     }
 
     pub fn function_call_error(message: impl Into<String>) -> Self {

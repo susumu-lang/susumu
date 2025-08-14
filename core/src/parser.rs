@@ -47,7 +47,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> SusumuResult<Program> {
         let mut program = Program::new();
-        
+
         // Skip initial newlines and comments
         self.skip_newlines_and_comments();
 
@@ -58,13 +58,16 @@ impl Parser {
                 program.add_function(func);
             } else {
                 // Check if this might be a function definition (identifier followed by parentheses and then brace)
-                if self.check(&TokenType::Identifier) && 
-                   self.tokens.get(self.current + 1).map_or(false, |t| t.token_type == TokenType::LeftParen) {
-                    
+                if self.check(&TokenType::Identifier)
+                    && self
+                        .tokens
+                        .get(self.current + 1)
+                        .map_or(false, |t| t.token_type == TokenType::LeftParen)
+                {
                     // Look ahead to see if this is a function definition (has braces) or function call
                     let mut lookahead = self.current + 2; // Skip identifier and opening paren
                     let mut paren_count = 1;
-                    
+
                     // Skip to closing paren
                     while lookahead < self.tokens.len() && paren_count > 0 {
                         match self.tokens[lookahead].token_type {
@@ -74,11 +77,11 @@ impl Parser {
                         }
                         lookahead += 1;
                     }
-                    
+
                     // Check if there's a brace after the closing paren (function definition)
-                    let is_function_def = lookahead < self.tokens.len() && 
-                        self.tokens[lookahead].token_type == TokenType::LeftBrace;
-                    
+                    let is_function_def = lookahead < self.tokens.len()
+                        && self.tokens[lookahead].token_type == TokenType::LeftBrace;
+
                     if is_function_def {
                         let func = self.function_definition()?;
                         // println!("DEBUG: Parsed function (no keyword): {}", func.name);
@@ -91,8 +94,12 @@ impl Parser {
                     }
                 } else {
                     // Check if this is a variable assignment (identifier = value)
-                    if self.check(&TokenType::Identifier) && 
-                       self.tokens.get(self.current + 1).map_or(false, |t| t.token_type == TokenType::Assign) {
+                    if self.check(&TokenType::Identifier)
+                        && self
+                            .tokens
+                            .get(self.current + 1)
+                            .map_or(false, |t| t.token_type == TokenType::Assign)
+                    {
                         let assignment = self.assignment_statement()?;
                         // Don't break - allow multiple top-level statements
                         if program.main_expression.is_none() {
@@ -139,7 +146,7 @@ impl Parser {
                     }
                 }
             }
-            
+
             self.skip_newlines_and_comments();
         }
 
@@ -157,11 +164,11 @@ impl Parser {
     /// Generate visual arrow flow diagram
     pub fn generate_flow_diagram(&self, path: &ArrowFlowPath) -> String {
         let mut diagram = String::new();
-        
+
         diagram.push_str(&format!("Arrow Flow Diagram (line {}):\n", path.start_line));
         diagram.push_str(&"=".repeat(50));
         diagram.push('\n');
-        
+
         // Show the actual flow
         for (i, step) in path.steps.iter().enumerate() {
             if i == 0 {
@@ -175,25 +182,44 @@ impl Parser {
             }
         }
         diagram.push('\n');
-        
+
         // Show type flow
         diagram.push_str("Type Flow:\n");
         for (i, step) in path.steps.iter().enumerate() {
             let indent = "  ".repeat(i);
-            diagram.push_str(&format!("{}Step {}: {} -> {}\n", 
-                indent, i + 1, step.input_type.description(), step.output_type.description()));
+            diagram.push_str(&format!(
+                "{}Step {}: {} -> {}\n",
+                indent,
+                i + 1,
+                step.input_type.description(),
+                step.output_type.description()
+            ));
         }
-        
+
         // Show any type mismatches
         if !path.expected_types.is_empty() && !path.actual_types.is_empty() {
             diagram.push_str("\nType Analysis:\n");
-            for (i, (expected, actual)) in path.expected_types.iter().zip(path.actual_types.iter()).enumerate() {
-                let status = if expected.is_assignable_to(actual) { "✓" } else { "✗" };
-                diagram.push_str(&format!("  {} Step {}: expected {}, got {}\n", 
-                    status, i + 1, expected.description(), actual.description()));
+            for (i, (expected, actual)) in path
+                .expected_types
+                .iter()
+                .zip(path.actual_types.iter())
+                .enumerate()
+            {
+                let status = if expected.is_assignable_to(actual) {
+                    "✓"
+                } else {
+                    "✗"
+                };
+                diagram.push_str(&format!(
+                    "  {} Step {}: expected {}, got {}\n",
+                    status,
+                    i + 1,
+                    expected.description(),
+                    actual.description()
+                ));
             }
         }
-        
+
         diagram
     }
 
@@ -201,7 +227,11 @@ impl Parser {
         // Check if this is an assignment statement
         if self.check(&TokenType::Identifier) {
             // Look ahead to see if next token is '='
-            if self.tokens.get(self.current + 1).map_or(false, |t| t.token_type == TokenType::Assign) {
+            if self
+                .tokens
+                .get(self.current + 1)
+                .map_or(false, |t| t.token_type == TokenType::Assign)
+            {
                 return self.assignment_statement();
             }
         }
@@ -210,14 +240,17 @@ impl Parser {
     }
 
     fn assignment_statement(&mut self) -> SusumuResult<Expression> {
-        let target_name = self.consume(&TokenType::Identifier, "Expected variable name")?.lexeme.clone();
+        let target_name = self
+            .consume(&TokenType::Identifier, "Expected variable name")?
+            .lexeme
+            .clone();
         self.consume(&TokenType::Assign, "Expected '=' after variable name")?;
-        
+
         // Skip any newlines before parsing the value
         self.skip_newlines_and_comments();
-        
+
         let value = self.expression()?;
-        
+
         Ok(Expression::Assignment {
             target: target_name,
             value: Box::new(value),
@@ -229,55 +262,56 @@ impl Parser {
         let name = if self.check(&TokenType::Identifier) {
             self.advance().lexeme.clone()
         } else {
-            self.consume(&TokenType::Identifier, "Expected function name")?.lexeme.clone()
+            self.consume(&TokenType::Identifier, "Expected function name")?
+                .lexeme
+                .clone()
         };
-        
+
         self.consume(&TokenType::LeftParen, "Expected '(' after function name")?;
-        
+
         let mut params = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
-                let param = self.consume(&TokenType::Identifier, "Expected parameter name")?.lexeme.clone();
+                let param = self
+                    .consume(&TokenType::Identifier, "Expected parameter name")?
+                    .lexeme
+                    .clone();
                 params.push(param);
-                
+
                 if !self.match_token(&TokenType::Comma) {
                     break;
                 }
             }
         }
-        
+
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
         self.consume(&TokenType::LeftBrace, "Expected '{' before function body")?;
-        
+
         self.skip_newlines_and_comments();
-        
+
         // Parse multiple statements/expressions in function body
         let mut expressions = Vec::new();
-        
+
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
             expressions.push(self.statement_or_expression()?);
             self.skip_newlines_and_comments();
         }
-        
+
         let body = if expressions.len() == 1 {
             expressions.into_iter().next().unwrap()
         } else {
             Expression::Block(expressions)
         };
-        
+
         self.consume(&TokenType::RightBrace, "Expected '}' after function body")?;
-        
-        Ok(FunctionDef {
-            name,
-            params,
-            body,
-        })
+
+        Ok(FunctionDef { name, params, body })
     }
 
     fn expression(&mut self) -> SusumuResult<Expression> {
         self.annotation()
     }
-    
+
     fn annotation(&mut self) -> SusumuResult<Expression> {
         if self.match_token(&TokenType::At) {
             let annotation = self.parse_annotation()?;
@@ -291,12 +325,13 @@ impl Parser {
             self.conditional()
         }
     }
-    
+
     fn parse_annotation(&mut self) -> SusumuResult<Annotation> {
-        let annotation_name = self.consume(&TokenType::Identifier, "Expected annotation name after '@'")?;
+        let annotation_name =
+            self.consume(&TokenType::Identifier, "Expected annotation name after '@'")?;
         let annotation_type = annotation_name.lexeme.clone();
         let line = annotation_name.line;
-        
+
         match annotation_type.as_str() {
             "trace" => {
                 if self.match_token(&TokenType::LeftArrow) {
@@ -369,9 +404,7 @@ impl Parser {
                     ))
                 }
             }
-            "parallel" => {
-                Ok(Annotation::Parallel)
-            }
+            "parallel" => Ok(Annotation::Parallel),
             "debug" => {
                 if self.match_token(&TokenType::LeftArrow) {
                     let value = self.primary()?;
@@ -390,10 +423,10 @@ impl Parser {
             _ => Err(SusumuError::parser_error(
                 line,
                 format!("Unknown annotation type: @{}", annotation_type),
-            ))
+            )),
         }
     }
-    
+
     fn expression_to_json_value(&self, expr: Expression) -> SusumuResult<serde_json::Value> {
         match expr {
             Expression::String(s) => Ok(serde_json::Value::String(s)),
@@ -414,7 +447,9 @@ impl Parser {
                 }
                 Ok(serde_json::Value::Object(map))
             }
-            _ => Err(SusumuError::runtime_error("Cannot convert expression to JSON value"))
+            _ => Err(SusumuError::runtime_error(
+                "Cannot convert expression to JSON value",
+            )),
         }
     }
 
@@ -432,18 +467,18 @@ impl Parser {
             } else {
                 return Err(SusumuError::parser_error(
                     self.peek().line,
-                    "Expected condition name after 'i'"
+                    "Expected condition name after 'i'",
                 ));
             };
 
             self.consume(&TokenType::LeftBrace, "Expected '{' after condition")?;
             self.skip_newlines_and_comments();
-            
+
             let then_branch = self.parse_block_content()?;
-            
+
             self.skip_newlines_and_comments();
             self.consume(&TokenType::RightBrace, "Expected '}' after then branch")?;
-            
+
             // Parse else-if branches
             let mut else_if_branches = Vec::new();
             while self.match_token(&TokenType::Ei) {
@@ -457,35 +492,38 @@ impl Parser {
                 } else {
                     return Err(SusumuError::parser_error(
                         self.peek().line,
-                        "Expected condition name after 'ei'"
+                        "Expected condition name after 'ei'",
                     ));
                 };
 
-                self.consume(&TokenType::LeftBrace, "Expected '{' after else-if condition")?;
+                self.consume(
+                    &TokenType::LeftBrace,
+                    "Expected '{' after else-if condition",
+                )?;
                 self.skip_newlines_and_comments();
-                
+
                 let else_if_then_branch = self.parse_block_content()?;
-                
+
                 self.skip_newlines_and_comments();
                 self.consume(&TokenType::RightBrace, "Expected '}' after else-if branch")?;
-                
+
                 else_if_branches.push(ElseIfBranch {
                     condition_type: else_if_condition_type,
                     condition: expr.clone(), // Use the same base expression
                     then_branch: else_if_then_branch,
                 });
             }
-            
+
             // Parse final else branch
             let else_branch = if self.match_token(&TokenType::E) {
                 self.consume(&TokenType::LeftBrace, "Expected '{' after 'e'")?;
                 self.skip_newlines_and_comments();
-                
+
                 let else_expr = self.parse_block_content()?;
-                
+
                 self.skip_newlines_and_comments();
                 self.consume(&TokenType::RightBrace, "Expected '}' after else branch")?;
-                
+
                 Some(Box::new(else_expr))
             } else {
                 None
@@ -510,26 +548,26 @@ impl Parser {
         let start_token = self.peek();
         let start_line = start_token.line;
         let start_column = start_token.column;
-        
+
         let mut expressions = vec![self.postfix()?];
         let mut directions = Vec::new();
         let mut flow_steps = Vec::new();
-        
+
         // Track the current type for visual debugging
         let current_type = SusumuType::Unknown; // Will be inferred
-        
+
         while self.match_token(&TokenType::RightArrow) || self.match_token(&TokenType::LeftArrow) {
             let direction = if self.previous().token_type == TokenType::RightArrow {
                 ArrowDirection::Forward
             } else {
                 ArrowDirection::Backward
             };
-            
+
             // Skip newlines after arrows to support multi-line arrow chains
             self.skip_newlines_and_comments();
-            
+
             let next_expr = self.postfix()?;
-            
+
             // Create flow step for visual debugging
             let step = ArrowFlowStep {
                 expression: self.expression_to_string(&next_expr),
@@ -540,7 +578,7 @@ impl Parser {
                 column: self.previous().column,
             };
             flow_steps.push(step);
-            
+
             directions.push(direction);
             expressions.push(next_expr);
         }
@@ -549,8 +587,9 @@ impl Parser {
             Ok(expressions.into_iter().next().unwrap())
         } else {
             // Type check the arrow chain
-            let (expected_types, actual_types) = self.type_check_arrow_chain(&expressions, &directions)?;
-            
+            let (expected_types, actual_types) =
+                self.type_check_arrow_chain(&expressions, &directions)?;
+
             // Create visual debugging path
             let flow_path = ArrowFlowPath {
                 start_line,
@@ -560,7 +599,7 @@ impl Parser {
                 actual_types,
             };
             self.arrow_flow_paths.push(flow_path);
-            
+
             Ok(Expression::ArrowChain {
                 expressions,
                 directions,
@@ -570,20 +609,19 @@ impl Parser {
 
     fn postfix(&mut self) -> SusumuResult<Expression> {
         let mut expr = self.binary_op()?;
-        
+
         // Handle property access: obj.property
         while self.match_token(&TokenType::Dot) {
-            let property = self.consume(&TokenType::Identifier, "Expected property name after '.'")?;
+            let property =
+                self.consume(&TokenType::Identifier, "Expected property name after '.'")?;
             expr = Expression::PropertyAccess {
                 object: Box::new(expr),
                 property: property.lexeme.clone(),
             };
         }
-        
-        
+
         Ok(expr)
     }
-    
 
     fn binary_op(&mut self) -> SusumuResult<Expression> {
         let mut expr = self.unary()?;
@@ -646,19 +684,22 @@ impl Parser {
         if self.match_token(&TokenType::Match) {
             self.match_expression()
         } else if self.match_token(&TokenType::ForEach) {
-            let variable = self.consume(&TokenType::Identifier, "Expected variable name after 'fe'")?.lexeme.clone();
+            let variable = self
+                .consume(&TokenType::Identifier, "Expected variable name after 'fe'")?
+                .lexeme
+                .clone();
             self.consume(&TokenType::In, "Expected 'in' after foreach variable")?;
-            
+
             let iterable = self.primary()?;
-            
+
             self.consume(&TokenType::LeftBrace, "Expected '{' after iterable")?;
             self.skip_newlines_and_comments();
-            
+
             let body = self.expression()?;
-            
+
             self.skip_newlines_and_comments();
             self.consume(&TokenType::RightBrace, "Expected '}' after foreach body")?;
-            
+
             Ok(Expression::ForEach {
                 variable,
                 iterable: Box::new(iterable),
@@ -672,11 +713,11 @@ impl Parser {
     fn flow_control(&mut self) -> SusumuResult<Expression> {
         if self.match_token(&TokenType::Return) {
             self.consume(&TokenType::LeftArrow, "Expected '<-' after 'return'")?;
-            let value = self.expression()?;  // Parse full expression, not just primary
+            let value = self.expression()?; // Parse full expression, not just primary
             Ok(Expression::Return(Box::new(value)))
         } else if self.match_token(&TokenType::Error) {
             self.consume(&TokenType::LeftArrow, "Expected '<-' after 'error'")?;
-            let value = self.expression()?;  // Parse full expression, not just primary
+            let value = self.expression()?; // Parse full expression, not just primary
             Ok(Expression::Error(Box::new(value)))
         } else {
             self.primary()
@@ -688,18 +729,14 @@ impl Parser {
             let lexeme = &self.previous().lexeme;
             // Try to parse as integer first, fall back to float
             let value = if lexeme.contains('.') {
-                lexeme.parse::<f64>()
-                    .map_err(|_| SusumuError::parser_error(
-                        self.previous().line,
-                        "Invalid number format"
-                    ))?
+                lexeme.parse::<f64>().map_err(|_| {
+                    SusumuError::parser_error(self.previous().line, "Invalid number format")
+                })?
             } else {
                 // Parse as integer, but store as f64 for compatibility
-                lexeme.parse::<i64>()
-                    .map_err(|_| SusumuError::parser_error(
-                        self.previous().line,
-                        "Invalid number format"
-                    ))? as f64
+                lexeme.parse::<i64>().map_err(|_| {
+                    SusumuError::parser_error(self.previous().line, "Invalid number format")
+                })? as f64
             };
             Ok(Expression::Number(value))
         } else if self.match_token(&TokenType::String) {
@@ -712,11 +749,11 @@ impl Parser {
             Ok(Expression::Null)
         } else if self.match_token(&TokenType::Identifier) {
             let name = self.previous().lexeme.clone();
-            
+
             if self.match_token(&TokenType::LeftParen) {
                 // Function call
                 let mut args = Vec::new();
-                
+
                 if !self.check(&TokenType::RightParen) {
                     loop {
                         args.push(self.expression()?);
@@ -725,9 +762,12 @@ impl Parser {
                         }
                     }
                 }
-                
-                self.consume(&TokenType::RightParen, "Expected ')' after function arguments")?;
-                
+
+                self.consume(
+                    &TokenType::RightParen,
+                    "Expected ')' after function arguments",
+                )?;
+
                 Ok(Expression::FunctionCall { name, args })
             } else {
                 Ok(Expression::Identifier(name))
@@ -740,11 +780,11 @@ impl Parser {
                 Ok(Expression::Tuple(Vec::new()))
             } else {
                 let first_expr = self.expression()?;
-                
+
                 if self.match_token(&TokenType::Comma) {
                     // Tuple
                     let mut elements = vec![first_expr];
-                    
+
                     if !self.check(&TokenType::RightParen) {
                         loop {
                             elements.push(self.expression()?);
@@ -753,7 +793,7 @@ impl Parser {
                             }
                         }
                     }
-                    
+
                     self.consume(&TokenType::RightParen, "Expected ')' after tuple elements")?;
                     Ok(Expression::Tuple(elements))
                 } else {
@@ -767,10 +807,10 @@ impl Parser {
             if self.is_object_literal() {
                 // Object literal: {key: value, key2: value2}
                 let mut pairs = Vec::new();
-                
+
                 // Skip newlines after opening brace
                 self.skip_newlines_and_comments();
-                
+
                 if !self.check(&TokenType::RightBrace) {
                     loop {
                         let key = if self.check(&TokenType::Identifier) {
@@ -780,27 +820,27 @@ impl Parser {
                         } else {
                             return Err(SusumuError::parser_error(
                                 self.peek().line,
-                                "Expected property name"
+                                "Expected property name",
                             ));
                         };
-                        
+
                         self.consume(&TokenType::Colon, "Expected ':' after property name")?;
                         let value = self.expression()?;
-                        
+
                         pairs.push((key, value));
-                        
+
                         if !self.match_token(&TokenType::Comma) {
                             break;
                         }
-                        
+
                         // Skip newlines after comma
                         self.skip_newlines_and_comments();
                     }
                 }
-                
+
                 // Skip newlines before closing brace
                 self.skip_newlines_and_comments();
-                
+
                 self.consume(&TokenType::RightBrace, "Expected '}' after object literal")?;
                 Ok(Expression::Object(pairs))
             } else {
@@ -810,26 +850,29 @@ impl Parser {
         } else if self.match_token(&TokenType::LeftBracket) {
             // Array literal
             let mut elements = Vec::new();
-            
+
             // Skip newlines after opening bracket
             self.skip_newlines_and_comments();
-            
+
             if !self.check(&TokenType::RightBracket) {
                 loop {
                     elements.push(self.expression()?);
                     if !self.match_token(&TokenType::Comma) {
                         break;
                     }
-                    
+
                     // Skip newlines after comma
                     self.skip_newlines_and_comments();
                 }
             }
-            
+
             // Skip newlines before closing bracket
             self.skip_newlines_and_comments();
-            
-            self.consume(&TokenType::RightBracket, "Expected ']' after array elements")?;
+
+            self.consume(
+                &TokenType::RightBracket,
+                "Expected ']' after array elements",
+            )?;
             Ok(Expression::Array(elements))
         } else if self.match_token(&TokenType::I) {
             // Standalone conditional: i condition { ... } ei condition { ... } e { ... }
@@ -844,18 +887,18 @@ impl Parser {
             } else {
                 return Err(SusumuError::parser_error(
                     self.peek().line,
-                    "Expected condition name after 'i'"
+                    "Expected condition name after 'i'",
                 ));
             };
 
             self.consume(&TokenType::LeftBrace, "Expected '{' after condition")?;
             self.skip_newlines_and_comments();
-            
+
             let then_branch = self.parse_block_content()?;
-            
+
             self.skip_newlines_and_comments();
             self.consume(&TokenType::RightBrace, "Expected '}' after then branch")?;
-            
+
             // Parse else-if branches
             let mut else_if_branches = Vec::new();
             while self.match_token(&TokenType::Ei) {
@@ -869,18 +912,21 @@ impl Parser {
                 } else {
                     return Err(SusumuError::parser_error(
                         self.peek().line,
-                        "Expected condition name after 'ei'"
+                        "Expected condition name after 'ei'",
                     ));
                 };
 
-                self.consume(&TokenType::LeftBrace, "Expected '{' after else-if condition")?;
+                self.consume(
+                    &TokenType::LeftBrace,
+                    "Expected '{' after else-if condition",
+                )?;
                 self.skip_newlines_and_comments();
-                
+
                 let else_if_then_branch = self.parse_block_content()?;
-                
+
                 self.skip_newlines_and_comments();
                 self.consume(&TokenType::RightBrace, "Expected '}' after else-if branch")?;
-                
+
                 // For standalone conditionals, we use a null condition placeholder
                 else_if_branches.push(ElseIfBranch {
                     condition_type: else_if_condition_type,
@@ -888,17 +934,17 @@ impl Parser {
                     then_branch: else_if_then_branch,
                 });
             }
-            
+
             // Parse final else branch
             let else_branch = if self.match_token(&TokenType::E) {
                 self.consume(&TokenType::LeftBrace, "Expected '{' after 'e'")?;
                 self.skip_newlines_and_comments();
-                
+
                 let else_expr = self.parse_block_content()?;
-                
+
                 self.skip_newlines_and_comments();
                 self.consume(&TokenType::RightBrace, "Expected '}' after else branch")?;
-                
+
                 Some(Box::new(else_expr))
             } else {
                 None
@@ -933,7 +979,10 @@ impl Parser {
                 if !condition_type.is_result() {
                     return Err(SusumuError::parser_error(
                         self.peek().line,
-                        &format!("Expected result type for 'i success', found: {}", condition_type.description())
+                        &format!(
+                            "Expected result type for 'i success', found: {}",
+                            condition_type.description()
+                        ),
                     ));
                 }
             }
@@ -945,7 +994,7 @@ impl Parser {
                 // Traditional if - condition should be boolean-like
             }
         }
-        
+
         Ok(())
     }
 
@@ -956,21 +1005,21 @@ impl Parser {
     ) -> SusumuResult<(Vec<SusumuType>, Vec<SusumuType>)> {
         let mut expected_types = Vec::new();
         let mut actual_types = Vec::new();
-        
+
         // Infer types for all expressions
         for expr in expressions {
             let expr_type = self.infer_expression_type(expr)?;
             actual_types.push(expr_type);
         }
-        
+
         // Check arrow chain compatibility
         let mut current_type = actual_types[0].clone();
         expected_types.push(current_type.clone());
-        
+
         for (i, direction) in directions.iter().enumerate() {
             let target_expr = &expressions[i + 1];
             let target_type = &actual_types[i + 1];
-            
+
             match direction {
                 ArrowDirection::Forward => {
                     // For forward arrows: current -> function
@@ -978,7 +1027,7 @@ impl Parser {
                     if let Expression::Identifier(func_name) = target_expr {
                         let expected_input = self.get_function_input_type(func_name)?;
                         expected_types.push(expected_input.clone());
-                        
+
                         if !current_type.is_assignable_to(&expected_input) {
                             self.add_type_error(TypeError {
                                 line: self.peek().line,
@@ -996,7 +1045,7 @@ impl Parser {
                                 ),
                             });
                         }
-                        
+
                         current_type = self.get_function_output_type(func_name)?;
                     }
                 }
@@ -1007,7 +1056,7 @@ impl Parser {
                 }
             }
         }
-        
+
         Ok((expected_types, actual_types))
     }
 
@@ -1028,7 +1077,8 @@ impl Parser {
                 }
             }
             Expression::Tuple(elements) => {
-                let element_types: Result<Vec<_>, _> = elements.iter()
+                let element_types: Result<Vec<_>, _> = elements
+                    .iter()
                     .map(|e| self.infer_expression_type(e))
                     .collect();
                 Ok(SusumuType::Tuple(element_types?))
@@ -1049,9 +1099,7 @@ impl Parser {
                 }
                 Ok(SusumuType::Object(field_types))
             }
-            Expression::FunctionCall { name, args: _ } => {
-                self.get_function_output_type(name)
-            }
+            Expression::FunctionCall { name, args: _ } => self.get_function_output_type(name),
             _ => Ok(SusumuType::Unknown),
         }
     }
@@ -1063,7 +1111,7 @@ impl Parser {
             "print" => Ok(SusumuType::Unknown), // Accepts anything
             "length" => Ok(SusumuType::Union(vec![
                 SusumuType::String,
-                SusumuType::Array(Box::new(SusumuType::Unknown))
+                SusumuType::Array(Box::new(SusumuType::Unknown)),
             ])),
             _ => Ok(SusumuType::Unknown),
         }
@@ -1074,7 +1122,10 @@ impl Parser {
             "add" | "multiply" | "subtract" | "divide" => Ok(SusumuType::Number),
             "print" => Ok(SusumuType::Unknown),
             "length" => Ok(SusumuType::Number),
-            "first" => Ok(SusumuType::Union(vec![SusumuType::Unknown, SusumuType::Null])),
+            "first" => Ok(SusumuType::Union(vec![
+                SusumuType::Unknown,
+                SusumuType::Null,
+            ])),
             _ => Ok(SusumuType::Unknown),
         }
     }
@@ -1090,18 +1141,21 @@ impl Parser {
         if self.check(&TokenType::RightBrace) {
             return true; // Empty object {}
         }
-        
+
         // Look for pattern: identifier/string followed by colon, skipping newlines
         let mut pos = self.current;
-        
+
         // Skip newlines to find the first non-newline token
         while pos < self.tokens.len() && self.tokens[pos].token_type == TokenType::Newline {
             pos += 1;
         }
-        
+
         if pos < self.tokens.len() {
             let first_token = &self.tokens[pos];
-            if matches!(first_token.token_type, TokenType::Identifier | TokenType::String) {
+            if matches!(
+                first_token.token_type,
+                TokenType::Identifier | TokenType::String
+            ) {
                 // Look for colon after first token, again skipping newlines
                 pos += 1;
                 while pos < self.tokens.len() && self.tokens[pos].token_type == TokenType::Newline {
@@ -1112,23 +1166,26 @@ impl Parser {
                 }
             }
         }
-        
+
         false // Default to block expression
     }
 
     /// Parse a block expression: { expr1; expr2; expr3 }
     fn parse_block_expression(&mut self) -> SusumuResult<Expression> {
         let mut expressions = Vec::new();
-        
+
         self.skip_newlines_and_comments();
-        
+
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
             expressions.push(self.expression()?);
             self.skip_newlines_and_comments();
         }
-        
-        self.consume(&TokenType::RightBrace, "Expected '}' after block expression")?;
-        
+
+        self.consume(
+            &TokenType::RightBrace,
+            "Expected '}' after block expression",
+        )?;
+
         if expressions.len() == 1 {
             Ok(expressions.into_iter().next().unwrap())
         } else {
@@ -1138,12 +1195,12 @@ impl Parser {
 
     fn parse_block_content(&mut self) -> SusumuResult<Expression> {
         let mut expressions = Vec::new();
-        
+
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
             expressions.push(self.expression()?);
             self.skip_newlines_and_comments();
         }
-        
+
         if expressions.len() == 1 {
             Ok(expressions.into_iter().next().unwrap())
         } else {
@@ -1170,7 +1227,7 @@ impl Parser {
         self.skip_newlines_and_comments();
 
         let mut cases = Vec::new();
-        
+
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
             let case = self.match_case()?;
             cases.push(case);
@@ -1184,7 +1241,7 @@ impl Parser {
 
     fn match_case(&mut self) -> SusumuResult<MatchCase> {
         let pattern = self.pattern()?;
-        
+
         // Optional guard condition
         let guard = if self.match_token(&TokenType::When) {
             Some(self.expression()?)
@@ -1205,9 +1262,10 @@ impl Parser {
     fn pattern(&mut self) -> SusumuResult<Pattern> {
         if self.match_token(&TokenType::Underscore) {
             Ok(Pattern::Wildcard)
-        } else if self.match_token(&TokenType::Identifier) || 
-                  self.match_token(&TokenType::Error) ||
-                  self.match_token(&TokenType::Return) {
+        } else if self.match_token(&TokenType::Identifier)
+            || self.match_token(&TokenType::Error)
+            || self.match_token(&TokenType::Return)
+        {
             let name = self.previous().lexeme.clone();
             if name == "some" || name == "none" || name == "success" || name == "error" {
                 // Check for arrow pattern syntax: some <- x  or parentheses syntax: some(x)
@@ -1235,7 +1293,10 @@ impl Parser {
                     } else {
                         self.pattern()?
                     };
-                    self.consume(&TokenType::RightParen, &format!("Expected ')' after {} pattern", name))?;
+                    self.consume(
+                        &TokenType::RightParen,
+                        &format!("Expected ')' after {} pattern", name),
+                    )?;
                     Ok(Pattern::ArrowPattern {
                         constructor: name,
                         arg: Box::new(inner_pattern),
@@ -1256,7 +1317,7 @@ impl Parser {
         } else if self.match_token(&TokenType::LeftParen) {
             // Tuple pattern
             let mut patterns = Vec::new();
-            
+
             if !self.check(&TokenType::RightParen) {
                 loop {
                     patterns.push(self.pattern()?);
@@ -1265,36 +1326,37 @@ impl Parser {
                     }
                 }
             }
-            
+
             self.consume(&TokenType::RightParen, "Expected ')' after tuple pattern")?;
             Ok(Pattern::Tuple(patterns))
         } else if self.match_token(&TokenType::LeftBrace) {
             // Object pattern
             let mut field_patterns = Vec::new();
-            
+
             if !self.check(&TokenType::RightBrace) {
                 loop {
-                    let key = self.consume(&TokenType::Identifier, "Expected field name")?.lexeme.clone();
+                    let key = self
+                        .consume(&TokenType::Identifier, "Expected field name")?
+                        .lexeme
+                        .clone();
                     self.consume(&TokenType::Colon, "Expected ':' after field name")?;
                     let pattern = self.pattern()?;
                     field_patterns.push((key, pattern));
-                    
+
                     if !self.match_token(&TokenType::Comma) {
                         break;
                     }
                 }
             }
-            
+
             self.consume(&TokenType::RightBrace, "Expected '}' after object pattern")?;
             Ok(Pattern::Object(field_patterns))
         } else {
             // Literal pattern
             let literal = if self.match_token(&TokenType::Number) {
-                let value = self.previous().lexeme.parse::<f64>()
-                    .map_err(|_| SusumuError::parser_error(
-                        self.previous().line,
-                        "Invalid number in pattern"
-                    ))?;
+                let value = self.previous().lexeme.parse::<f64>().map_err(|_| {
+                    SusumuError::parser_error(self.previous().line, "Invalid number in pattern")
+                })?;
                 LiteralValue::Number(value)
             } else if self.match_token(&TokenType::String) {
                 LiteralValue::String(self.previous().lexeme.clone())
@@ -1307,10 +1369,10 @@ impl Parser {
             } else {
                 return Err(SusumuError::parser_error(
                     self.peek().line,
-                    "Expected pattern"
+                    "Expected pattern",
                 ));
             };
-            
+
             Ok(Pattern::Literal(literal))
         }
     }
@@ -1379,39 +1441,53 @@ impl Parser {
 
     fn error_with_suggestion(&self, message: &str) -> SusumuError {
         let current_token = self.peek();
-        let prev_token = if self.current > 0 { 
-            &self.tokens[self.current - 1] 
-        } else { 
-            current_token 
+        let prev_token = if self.current > 0 {
+            &self.tokens[self.current - 1]
+        } else {
+            current_token
         };
-        
-        let (detailed_message, suggestion) = self.generate_detailed_error(&current_token.token_type, message, prev_token);
-        
+
+        let (detailed_message, suggestion) =
+            self.generate_detailed_error(&current_token.token_type, message, prev_token);
+
         SusumuError::parser_error(
             current_token.line,
-            &format!("{} at column {}\n💡 {}\n🔍 Context: Previous token was '{}' ({}:{})", 
-                     detailed_message, 
-                     current_token.column,
-                     suggestion,
-                     prev_token.lexeme,
-                     prev_token.line,
-                     prev_token.column)
+            &format!(
+                "{} at column {}\n💡 {}\n🔍 Context: Previous token was '{}' ({}:{})",
+                detailed_message,
+                current_token.column,
+                suggestion,
+                prev_token.lexeme,
+                prev_token.line,
+                prev_token.column
+            ),
         )
     }
 
-    fn generate_detailed_error(&self, found_token: &TokenType, message: &str, prev_token: &Token) -> (String, String) {
+    fn generate_detailed_error(
+        &self,
+        found_token: &TokenType,
+        message: &str,
+        prev_token: &Token,
+    ) -> (String, String) {
         match found_token {
             TokenType::LeftBrace => {
                 if prev_token.token_type == TokenType::RightArrow {
                     ("Block expression after '->' arrow".to_string(), 
                      "Blocks after arrows should contain expressions: `expr -> { stmt1; stmt2 }`".to_string())
                 } else {
-                    ("Unexpected '{' found".to_string(),
-                     "Use '{key: value}' for objects or '{ expr1; expr2 }' for blocks".to_string())
+                    (
+                        "Unexpected '{' found".to_string(),
+                        "Use '{key: value}' for objects or '{ expr1; expr2 }' for blocks"
+                            .to_string(),
+                    )
                 }
-            },
-            TokenType::RightBrace => ("Unexpected '}' - missing opening brace or unmatched braces".to_string(),
-                                    "Check that all '{' have matching '}' and blocks contain valid expressions".to_string()),
+            }
+            TokenType::RightBrace => (
+                "Unexpected '}' - missing opening brace or unmatched braces".to_string(),
+                "Check that all '{' have matching '}' and blocks contain valid expressions"
+                    .to_string(),
+            ),
             TokenType::Identifier => {
                 let context = if prev_token.token_type == TokenType::LeftArrow {
                     "after '<-' arrow - this should be a variable binding in patterns"
@@ -1420,22 +1496,42 @@ impl Parser {
                 } else {
                     "identifier"
                 };
-                (format!("Unexpected identifier '{}' {}", self.peek().lexeme, context),
-                 "Check spelling, ensure variables are defined, and verify function exists".to_string())
-            },
-            TokenType::RightArrow => ("Unexpected '->' arrow".to_string(),
-                                    "Arrows flow data: `value -> function` or `value -> function <- args`".to_string()),
-            TokenType::LeftArrow => ("Unexpected '<-' arrow".to_string(),
-                                   "Backward arrows provide convergent input: `main -> func <- arg1 <- arg2`".to_string()),
-            TokenType::Dot => ("Property access not yet supported".to_string(),
-                              "Currently implementing: `obj.property` syntax - use workaround for now".to_string()),
-            TokenType::EOF => ("Unexpected end of file".to_string(),
-                              "Expression or statement appears incomplete - check for missing closing braces".to_string()),
-            _ => (format!("{} - found '{}' of type {:?}", message, self.peek().lexeme, found_token),
-                  "Check the Susumu syntax guide for correct patterns".to_string()),
+                (
+                    format!("Unexpected identifier '{}' {}", self.peek().lexeme, context),
+                    "Check spelling, ensure variables are defined, and verify function exists"
+                        .to_string(),
+                )
+            }
+            TokenType::RightArrow => (
+                "Unexpected '->' arrow".to_string(),
+                "Arrows flow data: `value -> function` or `value -> function <- args`".to_string(),
+            ),
+            TokenType::LeftArrow => (
+                "Unexpected '<-' arrow".to_string(),
+                "Backward arrows provide convergent input: `main -> func <- arg1 <- arg2`"
+                    .to_string(),
+            ),
+            TokenType::Dot => (
+                "Property access not yet supported".to_string(),
+                "Currently implementing: `obj.property` syntax - use workaround for now"
+                    .to_string(),
+            ),
+            TokenType::EOF => (
+                "Unexpected end of file".to_string(),
+                "Expression or statement appears incomplete - check for missing closing braces"
+                    .to_string(),
+            ),
+            _ => (
+                format!(
+                    "{} - found '{}' of type {:?}",
+                    message,
+                    self.peek().lexeme,
+                    found_token
+                ),
+                "Check the Susumu syntax guide for correct patterns".to_string(),
+            ),
         }
     }
-
 }
 
 #[cfg(test)]
@@ -1450,9 +1546,13 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         assert!(ast.main_expression.is_some());
-        if let Some(Expression::ArrowChain { expressions, directions }) = ast.main_expression {
+        if let Some(Expression::ArrowChain {
+            expressions,
+            directions,
+        }) = ast.main_expression
+        {
             assert_eq!(expressions.len(), 3);
             assert_eq!(directions.len(), 2);
             assert_eq!(directions[0], ArrowDirection::Forward);
@@ -1469,7 +1569,7 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
-        
+
         assert!(ast.main_expression.is_some());
     }
 
@@ -1480,10 +1580,10 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let _ast = parser.parse().unwrap();
-        
+
         let flow_paths = parser.get_arrow_flow_paths();
         assert!(!flow_paths.is_empty());
-        
+
         let diagram = parser.generate_flow_diagram(&flow_paths[0]);
         assert!(diagram.contains("Arrow Flow Diagram"));
         assert!(diagram.contains("Type Flow"));
@@ -1495,7 +1595,7 @@ mod tests {
         let mut lexer = Lexer::new(source);
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
-        
+
         // Parser should complete but type checker should flag errors
         let _result = parser.parse();
         // In a real implementation, would check for type errors

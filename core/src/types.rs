@@ -43,7 +43,7 @@ pub enum SusumuType {
 
     // Generic types for inference
     Generic(String),
-    
+
     // Unknown type (for inference)
     Unknown,
 
@@ -57,43 +57,58 @@ impl SusumuType {
         match (self, other) {
             // Exact matches
             (a, b) if a == b => true,
-            
+
             // Unknown can be assigned to anything
             (SusumuType::Unknown, _) | (_, SusumuType::Unknown) => true,
-            
+
             // Union type compatibility
-            (SusumuType::Union(types), target) => {
-                types.iter().all(|t| t.is_assignable_to(target))
-            }
-            (source, SusumuType::Union(types)) => {
-                types.iter().any(|t| source.is_assignable_to(t))
-            }
-            
+            (SusumuType::Union(types), target) => types.iter().all(|t| t.is_assignable_to(target)),
+            (source, SusumuType::Union(types)) => types.iter().any(|t| source.is_assignable_to(t)),
+
             // Array covariance
-            (SusumuType::Array(a), SusumuType::Array(b)) => {
-                a.is_assignable_to(b)
-            }
-            
+            (SusumuType::Array(a), SusumuType::Array(b)) => a.is_assignable_to(b),
+
             // Tuple covariance
             (SusumuType::Tuple(a), SusumuType::Tuple(b)) => {
-                a.len() == b.len() && 
-                a.iter().zip(b.iter()).all(|(ta, tb)| ta.is_assignable_to(tb))
+                a.len() == b.len()
+                    && a.iter()
+                        .zip(b.iter())
+                        .all(|(ta, tb)| ta.is_assignable_to(tb))
             }
-            
+
             // Function contravariance for parameters, covariance for return
-            (SusumuType::Function { params: p1, return_type: r1, .. }, 
-             SusumuType::Function { params: p2, return_type: r2, .. }) => {
-                p1.len() == p2.len() &&
-                p2.iter().zip(p1.iter()).all(|(pa, pb)| pa.is_assignable_to(pb)) &&
-                r1.is_assignable_to(r2)
+            (
+                SusumuType::Function {
+                    params: p1,
+                    return_type: r1,
+                    ..
+                },
+                SusumuType::Function {
+                    params: p2,
+                    return_type: r2,
+                    ..
+                },
+            ) => {
+                p1.len() == p2.len()
+                    && p2
+                        .iter()
+                        .zip(p1.iter())
+                        .all(|(pa, pb)| pa.is_assignable_to(pb))
+                    && r1.is_assignable_to(r2)
             }
-            
+
             // Result type covariance
-            (SusumuType::Result { success_type: s1, error_type: e1 },
-             SusumuType::Result { success_type: s2, error_type: e2 }) => {
-                s1.is_assignable_to(s2) && e1.is_assignable_to(e2)
-            }
-            
+            (
+                SusumuType::Result {
+                    success_type: s1,
+                    error_type: e1,
+                },
+                SusumuType::Result {
+                    success_type: s2,
+                    error_type: e2,
+                },
+            ) => s1.is_assignable_to(s2) && e1.is_assignable_to(e2),
+
             _ => false,
         }
     }
@@ -121,16 +136,44 @@ impl SusumuType {
                     format!("object {{ {} }}", field_types.join(", "))
                 }
             }
-            SusumuType::Function { params, return_type, supports_convergence } => {
+            SusumuType::Function {
+                params,
+                return_type,
+                supports_convergence,
+            } => {
                 let param_types: Vec<String> = params.iter().map(|t| t.description()).collect();
-                let convergence = if *supports_convergence { " (supports convergence)" } else { "" };
-                format!("function ({}) -> {}{}", param_types.join(", "), return_type.description(), convergence)
+                let convergence = if *supports_convergence {
+                    " (supports convergence)"
+                } else {
+                    ""
+                };
+                format!(
+                    "function ({}) -> {}{}",
+                    param_types.join(", "),
+                    return_type.description(),
+                    convergence
+                )
             }
-            SusumuType::ArrowChain { input_type, output_type, .. } => {
-                format!("arrow chain {} -> {}", input_type.description(), output_type.description())
+            SusumuType::ArrowChain {
+                input_type,
+                output_type,
+                ..
+            } => {
+                format!(
+                    "arrow chain {} -> {}",
+                    input_type.description(),
+                    output_type.description()
+                )
             }
-            SusumuType::Result { success_type, error_type } => {
-                format!("result<{}, {}>", success_type.description(), error_type.description())
+            SusumuType::Result {
+                success_type,
+                error_type,
+            } => {
+                format!(
+                    "result<{}, {}>",
+                    success_type.description(),
+                    error_type.description()
+                )
             }
             SusumuType::Generic(name) => format!("generic {}", name),
             SusumuType::Unknown => "unknown".to_string(),
@@ -171,7 +214,11 @@ impl SusumuType {
     }
 
     /// Create a function type
-    pub fn function(params: Vec<SusumuType>, return_type: SusumuType, supports_convergence: bool) -> Self {
+    pub fn function(
+        params: Vec<SusumuType>,
+        return_type: SusumuType,
+        supports_convergence: bool,
+    ) -> Self {
         SusumuType::Function {
             params,
             return_type: Box::new(return_type),
@@ -180,7 +227,11 @@ impl SusumuType {
     }
 
     /// Create an arrow chain type
-    pub fn arrow_chain(input_type: SusumuType, output_type: SusumuType, intermediate_types: Vec<SusumuType>) -> Self {
+    pub fn arrow_chain(
+        input_type: SusumuType,
+        output_type: SusumuType,
+        intermediate_types: Vec<SusumuType>,
+    ) -> Self {
         SusumuType::ArrowChain {
             input_type: Box::new(input_type),
             output_type: Box::new(output_type),
@@ -234,13 +285,15 @@ impl TypeEnvironment {
 
     /// Get a variable type
     pub fn get_variable(&self, name: &str) -> Option<&SusumuType> {
-        self.variables.get(name)
+        self.variables
+            .get(name)
             .or_else(|| self.parent.as_ref().and_then(|p| p.get_variable(name)))
     }
 
     /// Get a function type
     pub fn get_function(&self, name: &str) -> Option<&SusumuType> {
-        self.functions.iter()
+        self.functions
+            .iter()
             .find(|(n, _)| n == name)
             .map(|(_, t)| t)
             .or_else(|| self.parent.as_ref().and_then(|p| p.get_function(name)))
@@ -306,7 +359,7 @@ impl TypeChecker {
     pub fn new() -> Self {
         let mut env = TypeEnvironment::new();
         Self::setup_builtin_types(&mut env);
-        
+
         Self {
             env,
             errors: Vec::new(),
@@ -316,99 +369,166 @@ impl TypeChecker {
     /// Setup built-in function types
     fn setup_builtin_types(env: &mut TypeEnvironment) {
         // Math functions with convergence support
-        env.define_function("add".to_string(), SusumuType::function(
-            vec![SusumuType::Number, SusumuType::Number], 
-            SusumuType::Number, 
-            true  // Supports convergence: 5 -> add <- 3 <- 2
-        ));
-        
-        env.define_function("multiply".to_string(), SusumuType::function(
-            vec![SusumuType::Number, SusumuType::Number], 
-            SusumuType::Number, 
-            true
-        ));
-        
-        env.define_function("subtract".to_string(), SusumuType::function(
-            vec![SusumuType::Number, SusumuType::Number], 
-            SusumuType::Number, 
-            false  // No convergence: order matters
-        ));
-        
+        env.define_function(
+            "add".to_string(),
+            SusumuType::function(
+                vec![SusumuType::Number, SusumuType::Number],
+                SusumuType::Number,
+                true, // Supports convergence: 5 -> add <- 3 <- 2
+            ),
+        );
+
+        env.define_function(
+            "multiply".to_string(),
+            SusumuType::function(
+                vec![SusumuType::Number, SusumuType::Number],
+                SusumuType::Number,
+                true,
+            ),
+        );
+
+        env.define_function(
+            "subtract".to_string(),
+            SusumuType::function(
+                vec![SusumuType::Number, SusumuType::Number],
+                SusumuType::Number,
+                false, // No convergence: order matters
+            ),
+        );
+
         // String functions
-        env.define_function("concat".to_string(), SusumuType::function(
-            vec![SusumuType::String, SusumuType::String], 
-            SusumuType::String, 
-            true
-        ));
-        
-        env.define_function("length".to_string(), SusumuType::function(
-            vec![SusumuType::Union(vec![SusumuType::String, SusumuType::Array(Box::new(SusumuType::Unknown))])], 
-            SusumuType::Number, 
-            false
-        ));
-        
+        env.define_function(
+            "concat".to_string(),
+            SusumuType::function(
+                vec![SusumuType::String, SusumuType::String],
+                SusumuType::String,
+                true,
+            ),
+        );
+
+        env.define_function(
+            "length".to_string(),
+            SusumuType::function(
+                vec![SusumuType::Union(vec![
+                    SusumuType::String,
+                    SusumuType::Array(Box::new(SusumuType::Unknown)),
+                ])],
+                SusumuType::Number,
+                false,
+            ),
+        );
+
         // I/O functions
-        env.define_function("print".to_string(), SusumuType::function(
-            vec![SusumuType::Unknown], 
-            SusumuType::Unknown, 
-            true  // Can print multiple values: a -> print <- b <- c
-        ));
-        
+        env.define_function(
+            "print".to_string(),
+            SusumuType::function(
+                vec![SusumuType::Unknown],
+                SusumuType::Unknown,
+                true, // Can print multiple values: a -> print <- b <- c
+            ),
+        );
+
         // Array functions
-        env.define_function("first".to_string(), SusumuType::function(
-            vec![SusumuType::Array(Box::new(SusumuType::Generic("T".to_string())))], 
-            SusumuType::Union(vec![SusumuType::Generic("T".to_string()), SusumuType::Null]), 
-            false
-        ));
-        
-        env.define_function("push".to_string(), SusumuType::function(
-            vec![
-                SusumuType::Array(Box::new(SusumuType::Generic("T".to_string()))), 
-                SusumuType::Generic("T".to_string())
-            ], 
-            SusumuType::Array(Box::new(SusumuType::Generic("T".to_string()))), 
-            false
-        ));
+        env.define_function(
+            "first".to_string(),
+            SusumuType::function(
+                vec![SusumuType::Array(Box::new(SusumuType::Generic(
+                    "T".to_string(),
+                )))],
+                SusumuType::Union(vec![SusumuType::Generic("T".to_string()), SusumuType::Null]),
+                false,
+            ),
+        );
+
+        env.define_function(
+            "push".to_string(),
+            SusumuType::function(
+                vec![
+                    SusumuType::Array(Box::new(SusumuType::Generic("T".to_string()))),
+                    SusumuType::Generic("T".to_string()),
+                ],
+                SusumuType::Array(Box::new(SusumuType::Generic("T".to_string()))),
+                false,
+            ),
+        );
     }
 
     /// Generate a helpful error message with fix suggestions
     pub fn generate_error_message(&self, error: &TypeError) -> String {
         let mut message = String::new();
-        
-        message.push_str(&format!("Type Error at line {}, column {}:\n", error.line, error.column));
-        
+
+        message.push_str(&format!(
+            "Type Error at line {}, column {}:\n",
+            error.line, error.column
+        ));
+
         match &error.error_type {
-            TypeErrorKind::TypeMismatch { expected, found, context } => {
+            TypeErrorKind::TypeMismatch {
+                expected,
+                found,
+                context,
+            } => {
                 message.push_str(&format!("  Expected type: {}\n", expected.description()));
                 message.push_str(&format!("  Found type:    {}\n", found.description()));
                 message.push_str(&format!("  Context:       {}\n", context));
-                
+
                 if let (SusumuType::Number, SusumuType::String) = (expected, found) {
-                    message.push_str("  💡 Suggestion: Use 'to_number()' to convert string to number\n");
+                    message.push_str(
+                        "  💡 Suggestion: Use 'to_number()' to convert string to number\n",
+                    );
                 } else if let (SusumuType::String, SusumuType::Number) = (expected, found) {
-                    message.push_str("  💡 Suggestion: Use 'to_string()' to convert number to string\n");
+                    message.push_str(
+                        "  💡 Suggestion: Use 'to_string()' to convert number to string\n",
+                    );
                 }
             }
-            
-            TypeErrorKind::ArrowChainError { step, expected_input, actual_input, function_name } => {
+
+            TypeErrorKind::ArrowChainError {
+                step,
+                expected_input,
+                actual_input,
+                function_name,
+            } => {
                 message.push_str(&format!("  Arrow chain type error at step {}\n", step));
-                message.push_str(&format!("  Function '{}' expects: {}\n", function_name, expected_input.description()));
-                message.push_str(&format!("  But receives:          {}\n", actual_input.description()));
+                message.push_str(&format!(
+                    "  Function '{}' expects: {}\n",
+                    function_name,
+                    expected_input.description()
+                ));
+                message.push_str(&format!(
+                    "  But receives:          {}\n",
+                    actual_input.description()
+                ));
                 message.push_str("  💡 Visual Debug: The arrow flow shows the type mismatch:\n");
-                message.push_str(&format!("     {} -> {} <- [type mismatch here]\n", actual_input.description(), function_name));
+                message.push_str(&format!(
+                    "     {} -> {} <- [type mismatch here]\n",
+                    actual_input.description(),
+                    function_name
+                ));
             }
-            
-            TypeErrorKind::ConvergenceError { function_name, expected_types, actual_types } => {
-                message.push_str(&format!("  Convergence error in function '{}'\n", function_name));
+
+            TypeErrorKind::ConvergenceError {
+                function_name,
+                expected_types,
+                actual_types,
+            } => {
+                message.push_str(&format!(
+                    "  Convergence error in function '{}'\n",
+                    function_name
+                ));
                 message.push_str("  Expected converging types: ");
                 for (i, t) in expected_types.iter().enumerate() {
-                    if i > 0 { message.push_str(", "); }
+                    if i > 0 {
+                        message.push_str(", ");
+                    }
                     message.push_str(&t.description());
                 }
                 message.push('\n');
                 message.push_str("  Actual converging types:   ");
                 for (i, t) in actual_types.iter().enumerate() {
-                    if i > 0 { message.push_str(", "); }
+                    if i > 0 {
+                        message.push_str(", ");
+                    }
                     message.push_str(&t.description());
                 }
                 message.push('\n');
@@ -417,8 +537,11 @@ impl TypeChecker {
                 message.push_str("     ^    ^      ^    ^\n");
                 message.push_str("     Types must be compatible for convergence\n");
             }
-            
-            TypeErrorKind::UndefinedVariable { name, similar_names } => {
+
+            TypeErrorKind::UndefinedVariable {
+                name,
+                similar_names,
+            } => {
                 message.push_str(&format!("  Undefined variable: '{}'\n", name));
                 if !similar_names.is_empty() {
                     message.push_str("  💡 Did you mean: ");
@@ -426,18 +549,26 @@ impl TypeChecker {
                     message.push('\n');
                 }
             }
-            
-            TypeErrorKind::UndefinedFunction { name, similar_names } => {
+
+            TypeErrorKind::UndefinedFunction {
+                name,
+                similar_names,
+            } => {
                 message.push_str(&format!("  Undefined function: '{}'\n", name));
                 if !similar_names.is_empty() {
                     message.push_str("  💡 Did you mean: ");
                     message.push_str(&similar_names.join(", "));
                     message.push('\n');
                 }
-                message.push_str("  💡 Available functions: add, multiply, subtract, print, length\n");
+                message
+                    .push_str("  💡 Available functions: add, multiply, subtract, print, length\n");
             }
-            
-            TypeErrorKind::ResultTypeError { context, expected_result, actual_type } => {
+
+            TypeErrorKind::ResultTypeError {
+                context,
+                expected_result,
+                actual_type,
+            } => {
                 message.push_str(&format!("  Result type error in {}\n", context));
                 if *expected_result {
                     message.push_str("  Expected: result type for 'i success { ... } e { ... }'\n");
@@ -450,7 +581,7 @@ impl TypeChecker {
                 }
             }
         }
-        
+
         message.push_str(&format!("\n  💡 {}\n", error.suggestion));
         message
     }
@@ -458,7 +589,8 @@ impl TypeChecker {
     /// Find similar names for typo suggestions
     #[allow(dead_code)]
     fn find_similar_names(&self, target: &str, names: &[String]) -> Vec<String> {
-        names.iter()
+        names
+            .iter()
             .filter(|name| self.levenshtein_distance(target, name) <= 2)
             .take(3)
             .cloned()
@@ -484,7 +616,11 @@ impl TypeChecker {
 
         for i in 1..=a_len {
             for j in 1..=b_len {
-                let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+                let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                    0
+                } else {
+                    1
+                };
                 matrix[i][j] = std::cmp::min(
                     std::cmp::min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1),
                     matrix[i - 1][j - 1] + cost,
@@ -520,27 +656,17 @@ mod tests {
 
     #[test]
     fn test_function_type_compatibility() {
-        let func1 = SusumuType::function(
-            vec![SusumuType::Number], 
-            SusumuType::String, 
-            false
-        );
-        
-        let func2 = SusumuType::function(
-            vec![SusumuType::Number], 
-            SusumuType::String, 
-            false
-        );
+        let func1 = SusumuType::function(vec![SusumuType::Number], SusumuType::String, false);
+
+        let func2 = SusumuType::function(vec![SusumuType::Number], SusumuType::String, false);
 
         assert!(func1.is_assignable_to(&func2));
     }
 
     #[test]
     fn test_result_type_creation() {
-        let result_type = SusumuType::result(
-            SusumuType::String,
-            SusumuType::Object(HashMap::new())
-        );
+        let result_type =
+            SusumuType::result(SusumuType::String, SusumuType::Object(HashMap::new()));
 
         assert!(result_type.is_result());
         assert_eq!(result_type.success_type(), Some(&SusumuType::String));
