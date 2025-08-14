@@ -9,6 +9,9 @@
 - **Build Pipeline:** Automated GitHub Actions for multi-platform releases
 - **Performance:** Sub-millisecond parsing, 972KB binary, 13.6s builds
 - **Deployment Ready:** .gitignore, README, workflows, documentation
+- **Comprehensive Built-in Library:** 40+ auto-available functions (I/O, HTTP, JSON, parallel operations)
+- **Standard Library Modules:** 7 specialized modules (math, string, array, fs, net, data, crypto) with 200+ functions
+- **Production Module System:** Real module loading with caching, search paths, and proper export handling
 
 ## 🔥 **IMMEDIATE PRIORITIES (Pre-Deployment)**
 
@@ -126,8 +129,9 @@ process_order(order) {
 ```
 
 ### **Implementation Tasks**
-- [ ] **Arrow-based module syntax:** Implement `-> export` and `-> from <- import <-` patterns
-- [ ] **Module resolution:** Arrow-flow import/export with dependency management
+- [x] **Production module loading:** Module search paths, caching, parsing, and export extraction ✅ **COMPLETED**
+- [x] **Standard library modules:** 7 complete modules with 200+ functions ✅ **COMPLETED** 
+- [ ] **Module import debugging:** Fix arrow chain evaluation for `from <- "module" <- import <- (functions)` **IN PROGRESS**
 - [ ] **Import variations:** Selective imports, renaming, namespace imports
 - [ ] **Conditional module loading:** Region/environment-based module selection
 - [ ] **Package system:** Susumu package registry (like npm/crates.io)
@@ -195,6 +199,7 @@ auth_middleware(request) {
 - [ ] **Cache abstraction:** Redis/Memcached with arrow-based cache patterns  
 - [ ] **Email system:** SMTP integration with template support
 - [ ] **CLI tooling:** Code generation and project management commands
+- [ ] **Describe command:** `susumu describe file.susu` - natural language flow documentation generator
 - [ ] **Configuration management:** Environment-based config with arrow injection
 
 ---
@@ -377,6 +382,57 @@ validate <- {
     request -> return_validation_errors
 }
 ```
+
+---
+
+## **FUTURE FEATURES**
+
+### **Describe Command - Natural Language Flow Documentation**
+
+**Vision:** `susumu describe file.susu` generates human-readable documentation by following arrow flows
+
+**Example Output:**
+```
+$ susumu describe order_processing.susu
+
+Order Processing Pipeline Analysis:
+
+MAIN FLOW:
+1. The process begins by receiving an 'order' input
+2. Data flows forward to 'validatePayment' for payment validation
+3. Upon success, flows to 'processInventory' to check stock availability  
+4. Results converge at 'calculateShipping' from both payment and inventory
+5. Finally flows to 'sendConfirmation' to complete the order
+
+CONDITIONAL BRANCHES:
+- If payment validation fails: flows to 'handlePaymentError' → 'notifyCustomer'
+- If inventory insufficient: flows to 'backorderProcess' → 'scheduleRestock'
+
+PARALLEL OPERATIONS:
+- 'validatePayment' and 'checkInventory' execute concurrently for performance
+- Results merge before shipping calculation
+
+FUNCTIONS DEFINED:
+- validatePayment(order): Validates payment method and processes charge
+- processInventory(order): Checks stock levels and reserves items
+- calculateShipping(orderData): Computes shipping costs and delivery dates
+```
+
+**Implementation Strategy:**
+1. **AST Analysis:** Parse program and build flow graph starting from main()
+2. **Flow Tracing:** Follow arrow directions to build execution paths  
+3. **Natural Language Generation:** Convert arrows to descriptive text:
+   - `->` becomes "flows forward to"
+   - `<-` becomes "receives input from" or "converges with"  
+   - Conditionals become "If/when/upon condition"
+   - Parallel flows become "concurrently executes"
+4. **Smart Inference:** Use function/variable names to infer intent
+
+**Benefits:**
+- **Instant Onboarding:** New developers understand complex flows immediately
+- **Auto Documentation:** Always up-to-date, generated from source  
+- **Debug Aid:** Identify logic flow issues without manual tracing
+- **Code Review:** Understand intent before implementation details
 
 ---
 

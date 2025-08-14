@@ -24,6 +24,8 @@ exclude = [
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.11", features = ["json", "blocking", "rustls-tls"], default-features = false }
 
 # Performance and memory management
 rayon = { version = "1.8", optional = true }  # Parallel processing for arrow convergence

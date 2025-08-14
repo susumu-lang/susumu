@@ -1534,12 +1534,247 @@ impl Parser {
     }
 
     /// Helper to consume an identifier token
+    fn import_statement(&mut self) -> SusumuResult<ImportStatement> {
+        // We've already consumed 'import'
+        
+        // Simple import: import <- module
+        if self.match_token(&TokenType::LeftArrow) {
+            let module_path = self.consume_identifier("Expected module name after 'import <-'")?;
+            return Ok(ImportStatement {
+                module_path: module_path.to_string(),
+                imports: ImportItems::All,
+            });
+        }
+
+        // Arrow-flow import: module -> from <- import <- (functions)
+        let module_path = self.consume_identifier("Expected module name")?.to_string();
+        self.consume(&TokenType::RightArrow, "Expected '->' after module name")?;
+        self.consume(&TokenType::From, "Expected 'from' after '->'")?;
+        self.consume(&TokenType::LeftArrow, "Expected '<-' after 'from'")?;
+        self.consume(&TokenType::Import, "Expected 'import' after '<-'")?;
+        self.consume(&TokenType::LeftArrow, "Expected '<-' after 'import'")?;
+        
+        // Parse import list: (func1, func2) or (func1 as alias1)
+        self.consume(&TokenType::LeftParen, "Expected '(' to start import list")?;
+        
+        let mut imports = Vec::new();
+        let mut is_aliased = false;
+        
+        while !self.check(&TokenType::RightParen) && !self.is_at_end() {
+            let func_name = self.consume_identifier("Expected function name")?.to_string();
+            
+            // Check for alias: func as alias
+            if self.tokens.get(self.current).map_or(false, |t| t.lexeme == "as") {
+                is_aliased = true;
+                self.advance(); // consume 'as'
+                let alias = self.consume_identifier("Expected alias name after 'as'")?.to_string();
+                imports.push((func_name.clone(), alias));
+            } else {
+                imports.push((func_name.clone(), func_name));
+            }
+            
+            if !self.check(&TokenType::RightParen) {
+                self.consume(&TokenType::Comma, "Expected ',' between imports")?;
+            }
+        }
+        
+        self.consume(&TokenType::RightParen, "Expected ')' to end import list")?;
+        
+        let import_items = if is_aliased {
+            ImportItems::Aliased(imports)
+        } else {
+            ImportItems::Named(imports.into_iter().map(|(name, _)| name).collect())
+        };
+        
+        Ok(ImportStatement {
+            module_path,
+            imports: import_items,
+        })
+    }
+
+    /// Check if current position starts an export arrow chain: func -> export or (func1, func2) -> export
+    fn check_export_arrow_chain(&self) -> bool {
+        if self.check(&TokenType::Identifier) {
+            // Look ahead for "func -> export"
+            if let Some(arrow_token) = self.tokens.get(self.current + 1) {
+                if arrow_token.token_type == TokenType::RightArrow {
+                    if let Some(export_token) = self.tokens.get(self.current + 2) {
+                        return export_token.token_type == TokenType::Export;
+                    }
+                }
+            }
+        } else if self.check(&TokenType::LeftParen) {
+            // Look ahead for "(func1, func2) -> export"
+            let mut pos = self.current + 1;
+            let mut paren_count = 1;
+            
+            // Skip to closing paren
+            while pos < self.tokens.len() && paren_count > 0 {
+                match self.tokens[pos].token_type {
+                    TokenType::LeftParen => paren_count += 1,
+                    TokenType::RightParen => paren_count -= 1,
+                    _ => {}
+                }
+                pos += 1;
+            }
+            
+            // Check for ") -> export"
+            if pos < self.tokens.len() && self.tokens[pos].token_type == TokenType::RightArrow {
+                if let Some(export_token) = self.tokens.get(pos + 1) {
+                    return export_token.token_type == TokenType::Export;
+                }
+            }
+        }
+        false
+    }
+
+    /// Parse forward export statement: func -> export or (func1, func2) -> export
+    fn forward_export_statement(&mut self) -> SusumuResult<ExportStatement> {
+        if self.check(&TokenType::LeftParen) {
+            // Multiple exports: (func1, func2) -> export
+            self.advance(); // consume '('
+            let mut exports = Vec::new();
+            
+            while !self.check(&TokenType::RightParen) && !self.is_at_end() {
+                let func_name = self.consume_identifier("Expected function name")?.to_string();
+                exports.push(func_name);
+                
+                if !self.check(&TokenType::RightParen) {
+                    self.consume(&TokenType::Comma, "Expected ',' between exports")?;
+                }
+            }
+            
+            self.consume(&TokenType::RightParen, "Expected ')' to end export list")?;
+            self.consume(&TokenType::RightArrow, "Expected '->' after function list")?;
+            self.consume(&TokenType::Export, "Expected 'export' after '->'")?;
+            
+            Ok(ExportStatement {
+                items: ExportItems::Multiple(exports),
+            })
+        } else {
+            // Single export: func -> export
+            let func_name = self.consume_identifier("Expected function name")?.to_string();
+            self.consume(&TokenType::RightArrow, "Expected '->' after function name")?;
+            self.consume(&TokenType::Export, "Expected 'export' after '->'")?;
+            
+            Ok(ExportStatement {
+                items: ExportItems::Function(func_name),
+            })
+        }
+    }
+
+    /// Parse export statement: export <- func or export <- (func1, func2)
+    fn export_statement(&mut self) -> SusumuResult<ExportStatement> {
+        // We've already consumed 'export'
+        
+        // Arrow-consistent export: export <- func or export <- (func1, func2)
+        self.consume(&TokenType::LeftArrow, "Expected '<-' after 'export'")?;
+        
+        if self.check(&TokenType::LeftParen) {
+            // Multiple exports: export <- (func1, func2)
+            self.advance(); // consume '('
+            let mut exports = Vec::new();
+            
+            while !self.check(&TokenType::RightParen) && !self.is_at_end() {
+                let func_name = self.consume_identifier("Expected function name")?.to_string();
+                exports.push(func_name);
+                
+                if !self.check(&TokenType::RightParen) {
+                    self.consume(&TokenType::Comma, "Expected ',' between exports")?;
+                }
+            }
+            
+            self.consume(&TokenType::RightParen, "Expected ')' to end export list")?;
+            
+            Ok(ExportStatement {
+                items: ExportItems::Multiple(exports),
+            })
+        } else {
+            // Single export: export <- func
+            let func_name = self.consume_identifier("Expected function name")?.to_string();
+            Ok(ExportStatement {
+                items: ExportItems::Function(func_name),
+            })
+        }
+    }
+
+    /// Helper to consume an identifier token
     fn consume_identifier(&mut self, message: &str) -> SusumuResult<&str> {
         if self.check(&TokenType::Identifier) {
             Ok(&self.advance().lexeme)
         } else {
             Err(self.error_with_suggestion(message))
         }
+    }
+
+    /// Validate that all imports have corresponding exports
+    pub fn validate_module_system(&self, program: &Program) -> Vec<SusumuError> {
+        let mut errors = Vec::new();
+        
+        // For now, we just validate that functions referenced in exports exist
+        // In a full implementation, this would resolve modules and check exports
+        for export in &program.exports {
+            match &export.items {
+                ExportItems::Function(func_name) => {
+                    if !program.functions.iter().any(|f| f.name == *func_name) {
+                        errors.push(SusumuError::parser_error(
+                            1, // Would need line number from export statement
+                            &format!("Cannot export function '{}': function not defined", func_name)
+                        ));
+                    }
+                }
+                ExportItems::Multiple(func_names) => {
+                    for func_name in func_names {
+                        if !program.functions.iter().any(|f| f.name == *func_name) {
+                            errors.push(SusumuError::parser_error(
+                                1, // Would need line number
+                                &format!("Cannot export function '{}': function not defined", func_name)
+                            ));
+                        }
+                    }
+                }
+                ExportItems::All => {
+                    // Export all functions - always valid
+                }
+            }
+        }
+        
+        // Validate imports would require module resolution
+        // For now, just flag imports that reference non-existent modules
+        for import in &program.imports {
+            // In a real implementation, would check if module_path exists
+            // and if the requested functions are exported by that module
+            match &import.imports {
+                ImportItems::Named(functions) => {
+                    // Would validate each function is exported by the module
+                    for func_name in functions {
+                        // Placeholder: in real implementation would resolve module and check exports
+                        if func_name.is_empty() {
+                            errors.push(SusumuError::parser_error(
+                                1,
+                                &format!("Invalid import: empty function name from module '{}'", import.module_path)
+                            ));
+                        }
+                    }
+                }
+                ImportItems::Aliased(aliases) => {
+                    // Would validate each original function is exported
+                    for (original, _alias) in aliases {
+                        if original.is_empty() {
+                            errors.push(SusumuError::parser_error(
+                                1,
+                                &format!("Invalid import: empty function name from module '{}'", import.module_path)
+                            ));
+                        }
+                    }
+                }
+                ImportItems::All => {
+                    // Import all - would check if module exists
+                }
+            }
+        }
+        
+        errors
     }
 }
 
@@ -1612,55 +1847,74 @@ mod tests {
     }
 
     #[test]
-    fn test_module_arrow_chain() {
-        // Test that import/export are treated as regular arrow chains
+    fn test_arrow_export_parsing() {
+        let source = "processPayment() { 5 -> return }\nexport <- processPayment";
+        let mut lexer = Lexer::new(source);
+        let tokens = lexer.tokenize().unwrap();
+        let mut parser = Parser::new(tokens);
+        let ast = parser.parse().unwrap();
+
+        assert_eq!(ast.exports.len(), 1);
+        match &ast.exports[0].items {
+            ExportItems::Function(name) => assert_eq!(name, "processPayment"),
+            _ => panic!("Expected single function export"),
+        }
+        
+        // Validate that the function exists
+        let errors = parser.validate_module_system(&ast);
+        assert!(errors.is_empty(), "Should have no validation errors");
+    }
+
+    #[test]
+    fn test_forward_arrow_export_parsing() {
+        let source = "validateOrder() { true -> return }\nrefundPayment() { 42 -> return }\n(validateOrder, refundPayment) -> export";
+        let mut lexer = Lexer::new(source);
+        let tokens = lexer.tokenize().unwrap();
+        let mut parser = Parser::new(tokens);
+        let ast = parser.parse().unwrap();
+
+        assert_eq!(ast.exports.len(), 1);
+        match &ast.exports[0].items {
+            ExportItems::Multiple(names) => {
+                assert_eq!(names.len(), 2);
+                assert!(names.contains(&"validateOrder".to_string()));
+                assert!(names.contains(&"refundPayment".to_string()));
+            },
+            _ => panic!("Expected multiple function export"),
+        }
+    }
+
+    #[test]
+    fn test_import_parsing() {
         let source = "payment_module -> from <- import <- (processPayment, refundPayment)";
         let mut lexer = Lexer::new(source);
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
 
-        // Should parse as regular arrow chain expression
-        assert!(ast.main_expression.is_some());
-
-        // Verify it parsed as an arrow chain with the expected structure
-        if let Some(Expression::ArrowChain {
-            expressions,
-            directions,
-        }) = &ast.main_expression
-        {
-            assert_eq!(expressions.len(), 4); // payment_module, from, import, (processPayment, refundPayment)
-            assert_eq!(directions.len(), 3); // ->, <-, <-
-            assert_eq!(directions[0], ArrowDirection::Forward); // ->
-            assert_eq!(directions[1], ArrowDirection::Backward); // <-
-            assert_eq!(directions[2], ArrowDirection::Backward); // <-
-        } else {
-            panic!("Expected arrow chain for module import statement");
+        assert_eq!(ast.imports.len(), 1);
+        assert_eq!(ast.imports[0].module_path, "payment_module");
+        match &ast.imports[0].imports {
+            ImportItems::Named(functions) => {
+                assert_eq!(functions.len(), 2);
+                assert!(functions.contains(&"processPayment".to_string()));
+                assert!(functions.contains(&"refundPayment".to_string()));
+            },
+            _ => panic!("Expected named imports"),
         }
     }
 
     #[test]
-    fn test_export_arrow_chain() {
-        // Test export as arrow chain: (func1, func2) -> export
-        let source = "(processPayment, refundPayment) -> export";
+    fn test_export_validation_error() {
+        let source = "export <- nonExistentFunction";
         let mut lexer = Lexer::new(source);
         let tokens = lexer.tokenize().unwrap();
         let mut parser = Parser::new(tokens);
         let ast = parser.parse().unwrap();
 
-        // Should parse as regular arrow chain expression
-        assert!(ast.main_expression.is_some());
-
-        if let Some(Expression::ArrowChain {
-            expressions,
-            directions,
-        }) = &ast.main_expression
-        {
-            assert_eq!(expressions.len(), 2); // (func1, func2), export
-            assert_eq!(directions.len(), 1); // ->
-            assert_eq!(directions[0], ArrowDirection::Forward);
-        } else {
-            panic!("Expected arrow chain for export statement");
-        }
+        // Validate should catch the missing function
+        let errors = parser.validate_module_system(&ast);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].to_string().contains("Cannot export function 'nonExistentFunction'"));
     }
 }
