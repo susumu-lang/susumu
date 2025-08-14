@@ -1,0 +1,181 @@
+{
+  "name": "susumu-language",
+  "displayName": "Susumu Language Support",
+  "description": "Full language support for Susumu - the arrow-flow programming language that makes data transformations visual",
+  "version": "0.3.2",
+  "publisher": "susumu-lang",
+  "icon": "images/icon.svg",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/susumu-lang/susumu"
+  },
+  "homepage": "https://susumu.dev",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Debuggers"
+  ],
+  "keywords": [
+    "susumu",
+    "arrow-flow",
+    "functional",
+    "programming-language"
+  ],
+  "activationEvents": [
+    "onLanguage:susumu"
+  ],
+  "main": "./out/extension.js",
+  "files": [
+    "bin/susumu-lsp"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "susumu",
+        "aliases": [
+          "Susumu",
+          "susumu"
+        ],
+        "extensions": [
+          ".susu",
+          ".susumu"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "susumu",
+        "scopeName": "source.susumu",
+        "path": "./syntaxes/susumu-fixed.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "susumu",
+        "path": "./snippets/susumu.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Susumu Language Configuration",
+      "properties": {
+        "susumu.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Language Server Protocol support"
+        },
+        "susumu.lsp.serverPath": {
+          "type": "string",
+          "default": "susumu-lsp",
+          "description": "Path to the Susumu LSP server binary"
+        },
+        "susumu.formatting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic code formatting"
+        },
+        "susumu.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable syntax and semantic diagnostics"
+        },
+        "susumu.interpreter.path": {
+          "type": "string",
+          "default": "susumu",
+          "description": "Path to the Susumu interpreter binary"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "susumu.showAST",
+        "title": "Show AST",
+        "category": "Susumu"
+      },
+      {
+        "command": "susumu.evaluateSelection",
+        "title": "Evaluate Selection",
+        "category": "Susumu"
+      },
+      {
+        "command": "susumu.runFile",
+        "title": "Run Susumu File",
+        "category": "Susumu"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "susumu.evaluateSelection",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorTextFocus && resourceExtname == '.susu'"
+      },
+      {
+        "command": "susumu.runFile",
+        "key": "ctrl+f5",
+        "mac": "cmd+f5",
+        "when": "editorTextFocus && resourceExtname == '.susu'"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "susumu.evaluateSelection",
+          "when": "editorTextFocus && resourceExtname == '.susu'",
+          "group": "susumu"
+        },
+        {
+          "command": "susumu.showAST",
+          "when": "editorTextFocus && resourceExtname == '.susu'",
+          "group": "susumu"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "susumu.runFile",
+          "when": "resourceExtname == '.susu'",
+          "group": "susumu"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "build": "./build.sh",
+    "build-lsp": "cd ../rust-backend && cargo build --bin susumu-lsp --features lsp --release",
+    "copy-lsp": "mkdir -p bin && cp ../rust-backend/target/release/susumu-lsp bin/",
+    "full-build": "npm run build-lsp && npm run copy-lsp && npm run compile && npm run package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "eslint": "^8.47.0",
+    "typescript": "^5.1.6",
+    "@vscode/test-electron": "^2.3.4",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/susumu-lang/susumu"
+  },
+  "bugs": {
+    "url": "https://github.com/susumu-lang/susumu/issues"
+  },
+  "homepage": "https://susumu-lang.github.io",
+  "license": "MIT"
+}

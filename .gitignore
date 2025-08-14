@@ -1,0 +1,95 @@
+# Claude Code specific files (development only)
+CLAUDE.md
+claude.md
+TODO.md
+todo.md
+development_roadmap.md
+
+# Rust
+/target/
+/core/target/
+**/*.rs.bk
+Cargo.lock
+/core/Cargo.lock
+
+# Build directories
+build/
+dist/
+
+# VSCode Extension
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/*.vsix
+vscode-extension/.vscode-test/
+
+# Development artifacts
+*.susu
+*.tmp
+*.log
+bench_*
+test_*
+debug_*
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+
+# WASM build outputs
+/core/pkg/
+*.wasm
+wasm-pack.log
+
+# Test outputs
+junit.xml
+coverage.xml
+*.cover
+.coverage
+.pytest_cache/
+
+# Documentation build
+docs/_build/
+site/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Node.js
+node_modules/
+*.npm
+.npm
+.node_repl_history
+*.tgz
+.yarn-integrity
+.yarn-cache/
+.pnp.*
+
+# Temporary LSP logs
+lsp.log
+*.lsp.log

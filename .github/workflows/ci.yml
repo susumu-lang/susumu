@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test-core:
+    name: Test Core Language
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Check formatting
+        run: |
+          cd core
+          cargo fmt -- --check
+          
+      - name: Run clippy
+        run: |
+          cd core
+          cargo clippy --all-features -- -D warnings
+          
+      - name: Run tests
+        run: |
+          cd core
+          cargo test --all-features
+
+  test-lsp:
+    name: Test LSP Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Build LSP server
+        run: |
+          cd core
+          cargo build --bin susumu-lsp --features lsp
+
+  test-vscode-extension:
+    name: Test VSCode Extension  
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          cd vscode-extension
+          npm ci
+          
+      - name: Build extension
+        run: |
+          cd vscode-extension
+          npm run compile
+          
+      - name: Package extension
+        run: |
+          cd vscode-extension
+          npx vsce package --out test-build.vsix

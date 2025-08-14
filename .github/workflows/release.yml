@@ -1,0 +1,235 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Run tests
+        run: |
+          cd core
+          cargo test --all-features
+          cargo clippy -- -D warnings
+          cargo fmt -- --check
+
+  build-binaries:
+    name: Build Release Binaries
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: susumu-linux-x86_64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: susumu-macos-x86_64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: susumu-macos-aarch64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: susumu-windows-x86_64.exe
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build binary
+        run: |
+          cd core
+          cargo build --release --target ${{ matrix.target }} --bin susumu
+          
+      - name: Build LSP server
+        run: |
+          cd core
+          cargo build --release --target ${{ matrix.target }} --bin susumu-lsp --features lsp
+          
+      - name: Package binaries (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd core/target/${{ matrix.target }}/release
+          tar -czf ${{ matrix.name }}.tar.gz susumu susumu-lsp
+          
+      - name: Package binaries (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd core/target/${{ matrix.target }}/release
+          7z a ${{ matrix.name }}.zip susumu.exe susumu-lsp.exe
+          
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.name }}
+          path: core/target/${{ matrix.target }}/release/${{ matrix.name }}.*
+
+  build-wasm:
+    name: Build WASM Package
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            core/target
+          key: wasm-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build WASM package
+        run: |
+          cd core
+          wasm-pack build --target web --features wasm
+          
+      - name: Package WASM
+        run: |
+          cd core/pkg
+          tar -czf susumu-wasm.tar.gz *
+          
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: susumu-wasm
+          path: core/pkg/susumu-wasm.tar.gz
+
+  build-vscode-extension:
+    name: Build VSCode Extension
+    needs: [test, build-binaries]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          cd vscode-extension
+          npm ci
+          
+      - name: Download LSP binary
+        uses: actions/download-artifact@v3
+        with:
+          name: susumu-linux-x86_64
+          path: ./lsp-binary/
+          
+      - name: Extract and setup LSP
+        run: |
+          cd lsp-binary
+          tar -xzf susumu-linux-x86_64.tar.gz
+          cp susumu-lsp ../vscode-extension/bin/susumu-lsp
+          chmod +x ../vscode-extension/bin/susumu-lsp
+          
+      - name: Build extension
+        run: |
+          cd vscode-extension
+          npm run compile
+          npx vsce package
+          
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: vscode-extension
+          path: vscode-extension/*.vsix
+
+  release:
+    name: Create GitHub Release
+    needs: [build-binaries, build-wasm, build-vscode-extension]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            susumu-*/susumu-*.*
+            susumu-wasm/susumu-wasm.tar.gz
+            vscode-extension/*.vsix
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crates:
+    name: Publish to crates.io
+    needs: [test, build-binaries]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Publish to crates.io
+        run: |
+          cd core
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

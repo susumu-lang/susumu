@@ -1,0 +1,28 @@
+# Ignore source files and development artifacts
+src/**
+.vscode/**
+out/test/**
+
+# Include ALL node_modules for now to fix dependency issues  
+# node_modules/**
+test/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+.vscode-test/**
+coverage/**
+
+# Development files
+test-scope-example.susu
+DEVELOPMENT.md
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db

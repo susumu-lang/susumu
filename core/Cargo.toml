@@ -1,0 +1,82 @@
+[package]
+name = "susumu"
+version = "0.1.0"
+edition = "2021"
+authors = ["Susumu Team <team@susumu.dev>"]
+description = "Revolutionary functional language making data flow visible through arrow syntax"
+license = "MIT"
+readme = "../README.md"
+homepage = "https://susumu.dev"
+repository = "https://github.com/susumu-lang/susumu"
+documentation = "https://docs.susumu.dev"
+keywords = ["programming-language", "functional", "arrow-flow", "visual-programming", "data-flow"]
+categories = ["development-tools", "parser-implementations", "wasm", "command-line-utilities"]
+exclude = [
+    "archive/*",
+    "*.html",
+    "*.md",
+    "test_*.susu",
+    ".claude/*"
+]
+
+[dependencies]
+# Core language features
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Performance and memory management
+rayon = { version = "1.8", optional = true }  # Parallel processing for arrow convergence
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"], optional = true }
+futures = { version = "0.3", optional = true }
+dashmap = "5.5"  # Concurrent hash maps for environments
+parking_lot = "0.12"  # Fast synchronization primitives
+
+# WASM support
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+
+# Python FFI bridge
+pyo3 = { version = "0.20", optional = true, features = ["extension-module"] }
+
+# LSP support
+lsp-types = { version = "0.95", optional = true }
+lsp-server = { version = "0.7", optional = true }
+env_logger = { version = "0.11", optional = true }
+
+# Development and testing
+criterion = { version = "0.5", optional = true }
+
+[features]
+default = ["parallel"]
+parallel = ["rayon"]
+wasm = ["wasm-bindgen", "js-sys", "web-sys", "console_error_panic_hook", "serde-wasm-bindgen"]
+python-bridge = ["pyo3"]
+lsp = ["lsp-types", "lsp-server", "tokio", "env_logger"]
+benchmarks = ["criterion"]
+
+# WASM target
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "susumu"
+path = "src/main.rs"
+
+[[bin]]
+name = "susumu-lsp"
+path = "src/bin/susumu-lsp.rs"
+required-features = ["lsp"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.release-wasm]
+inherits = "release"
+opt-level = "s"  # Optimize for size in WASM
