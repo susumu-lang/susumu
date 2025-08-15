@@ -155,12 +155,15 @@ impl BuiltinRegistry {
         self.register("equals", builtin_core_equals);
 
         // === CORE I/O FUNCTIONS (Auto-available for productivity) ===
-        self.register("readFile", builtin_core_read_file);
-        self.register("writeFile", builtin_core_write_file);
-        self.register("appendFile", builtin_core_append_file);
-        self.register("fileExists", builtin_core_file_exists);
-        self.register("fileInfo", builtin_core_file_info);
-        self.register("listDir", builtin_core_list_dir);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.register("readFile", builtin_core_read_file);
+            self.register("writeFile", builtin_core_write_file);
+            self.register("appendFile", builtin_core_append_file);
+            self.register("fileExists", builtin_core_file_exists);
+            self.register("fileInfo", builtin_core_file_info);
+            self.register("listDir", builtin_core_list_dir);
+        }
 
         // === CORE JSON/DATA PROCESSING (Auto-available) ===
         self.register("parseJSON", builtin_core_parse_json);
@@ -201,13 +204,17 @@ impl BuiltinRegistry {
         self.register("timeDiff", builtin_core_time_diff);
 
         // === CORE HTTP CLIENT (Auto-available) ===
-        self.register("httpGet", builtin_core_http_get);
-        self.register("httpPost", builtin_core_http_post);
-        self.register("httpRequest", builtin_core_http_request);
-        self.register("httpGetParallel", builtin_core_http_get_parallel);
-        self.register("httpPostParallel", builtin_core_http_post_parallel);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.register("httpGet", builtin_core_http_get);
+            self.register("httpPost", builtin_core_http_post);
+            self.register("httpRequest", builtin_core_http_request);
+            self.register("httpGetParallel", builtin_core_http_get_parallel);
+            self.register("httpPostParallel", builtin_core_http_post_parallel);
+        }
 
         // === PARALLEL OPERATIONS (Auto-available for performance) ===
+        #[cfg(not(target_arch = "wasm32"))]
         self.register("readFilesParallel", builtin_core_read_files_parallel);
         self.register("mapParallel", builtin_core_map_parallel);
 
@@ -1586,6 +1593,7 @@ fn builtin_core_equals(args: &[Value]) -> SusumuResult<Value> {
 // =============================================================================
 
 /// Read entire file with automatic resource cleanup
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_read_file(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -1608,6 +1616,7 @@ fn builtin_core_read_file(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Write file with automatic resource cleanup and UTF-8 safety  
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_write_file(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
         return Err(SusumuError::runtime_error(
@@ -1633,6 +1642,7 @@ fn builtin_core_write_file(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Append to file with automatic resource cleanup
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_append_file(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
         return Err(SusumuError::runtime_error(
@@ -1669,6 +1679,7 @@ fn builtin_core_append_file(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Check if file exists
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_file_exists(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -1684,6 +1695,7 @@ fn builtin_core_file_exists(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Get file metadata with automatic resource management
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_file_info(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -1715,6 +1727,7 @@ fn builtin_core_file_info(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// List directory contents
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_list_dir(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -2280,6 +2293,7 @@ fn builtin_core_is_array(args: &[Value]) -> SusumuResult<Value> {
 // =============================================================================
 
 /// Simple HTTP GET request with automatic connection management
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_http_get(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -2320,6 +2334,7 @@ fn builtin_core_http_get(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Simple HTTP POST request with JSON payload
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_http_post(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 2 {
         return Err(SusumuError::runtime_error(
@@ -2362,6 +2377,7 @@ fn builtin_core_http_post(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// HTTP request with full configuration
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_http_request(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -2446,6 +2462,7 @@ fn builtin_core_http_request(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Parallel HTTP requests - takes array of URLs and fetches them concurrently
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_http_get_parallel(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -2555,6 +2572,7 @@ fn builtin_core_http_get_parallel(args: &[Value]) -> SusumuResult<Value> {
 }
 
 /// Parallel HTTP POST requests - takes array of request configs
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_http_post_parallel(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(
@@ -2709,6 +2727,7 @@ fn builtin_core_http_post_parallel(args: &[Value]) -> SusumuResult<Value> {
 // =============================================================================
 
 /// Read multiple files in parallel
+#[cfg(not(target_arch = "wasm32"))]
 fn builtin_core_read_files_parallel(args: &[Value]) -> SusumuResult<Value> {
     if args.len() != 1 {
         return Err(SusumuError::runtime_error(

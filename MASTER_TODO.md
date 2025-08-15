@@ -57,9 +57,18 @@
 - [x] **GitHub Actions workflows:** Automated release pipeline for crates.io and GitHub releases
 - [x] **VSCode extension:** Latest v0.3.2 with all parsing fixes, ready for marketplace
 - [x] **Multi-platform binaries:** Automated builds for Linux, macOS, Windows
-- [x] **WASM compilation:** Browser-ready builds included
-- [ ] **Crates.io publisher setup:** Account creation and authentication (manual step)
+- [ ] **WASM compilation:** Implement proper WASM support with web-native alternatives
+- [x] **Crates.io publishing:** Successfully published to crates.io
 - [ ] **VSCode marketplace setup:** Azure DevOps publisher account (manual step)
+
+### 4. **WASM Implementation (Best Practices)**
+- [ ] **HTTP in WASM:** Replace `reqwest::blocking` with async fetch API via web-sys
+- [ ] **File System in WASM:** Implement virtual file system or IndexedDB storage
+- [ ] **Async Runtime:** Use wasm-bindgen-futures for proper async/await in browser
+- [ ] **Feature Detection:** Runtime capability detection instead of compile-time exclusion
+- [ ] **npm Package:** Create proper TypeScript definitions and JavaScript wrapper
+- [ ] **WASM-specific Built-ins:** Browser-compatible alternatives for all core functions
+- [ ] **Testing:** Browser-based test suite for WASM functionality
 
 ## 📦 **DEPLOYMENT TARGETS**
 

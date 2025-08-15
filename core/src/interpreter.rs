@@ -119,10 +119,8 @@ impl Interpreter {
     /// Execute a program and return the result
     pub fn execute(&mut self, program: &Program) -> SusumuResult<Value> {
         let start_time = self.get_current_time();
-
         // Register all functions
         for func_def in &program.functions {
-            // println!("DEBUG: Registering function: {}", func_def.name);
             self.register_user_function(func_def)?;
         }
 
@@ -288,9 +286,19 @@ impl Interpreter {
             Expression::Boolean(b) => Ok(Value::Bool(*b)),
             Expression::Null => Ok(Value::Null),
 
-            Expression::Identifier(name) => env
-                .get(name)
-                .map_err(|_| SusumuError::undefined_variable(name)),
+            Expression::Identifier(name) => {
+                // First try to look up as a variable
+                match env.get(name) {
+                    Ok(value) => Ok(value),
+                    Err(_) => {
+                        // If not found as a variable, try as a zero-argument function call
+                        match env.get_function(name) {
+                            Ok(_) => self.call_function_with_args(name, &[], env),
+                            Err(_) => Err(SusumuError::undefined_variable(name)),
+                        }
+                    }
+                }
+            }
 
             Expression::Tuple(elements) => {
                 let values: Result<Vec<_>, _> =
@@ -311,6 +319,10 @@ impl Interpreter {
                     object.insert(key.clone(), value);
                 }
                 Ok(Value::Object(object))
+            }
+
+            Expression::ObjectMutation { target, mutations } => {
+                self.evaluate_object_mutation(target, mutations, env)
             }
 
             Expression::ArrowChain {
@@ -347,11 +359,24 @@ impl Interpreter {
                 Err(SusumuError::user_error(val))
             }
 
+            Expression::Success(value) => {
+                let val = self.evaluate(value, env)?;
+                Err(SusumuError::success_return(val))
+            }
+
+            Expression::ErrorReturn(value) => {
+                let val = self.evaluate(value, env)?;
+                Err(SusumuError::error_return(val))
+            }
+
             Expression::ForEach {
                 variable,
                 iterable,
                 body,
             } => self.evaluate_foreach_with_debugging(variable, iterable, body, env),
+            Expression::While { condition, body } => {
+                self.evaluate_while_with_debugging(condition, body, env)
+            }
 
             Expression::Block(expressions) => {
                 let mut result = Value::Null;
@@ -398,12 +423,11 @@ impl Interpreter {
             Expression::Assignment {
                 target,
                 value,
-                mutable: _,
+                mutable,
             } => {
                 let val = self.evaluate(value, env)?;
-                // Use define to create the variable if it doesn't exist
-                // This allows assignments to create new variables
-                env.define(target.clone(), val.clone());
+                // Use define_with_mutability to create the variable with proper mutability
+                env.define_with_mutability(target.clone(), val.clone(), *mutable);
                 Ok(val)
             }
 
@@ -423,6 +447,31 @@ impl Interpreter {
                 let left_val = self.evaluate(left, env)?;
                 let right_val = self.evaluate(right, env)?;
                 self.evaluate_binary_op(&left_val, operator, &right_val)
+            }
+
+            Expression::ErrorPropagation { expression } => {
+                // Evaluate the expression and propagate errors
+                match self.evaluate(expression, env) {
+                    Ok(value) => Ok(value),
+                    Err(error) => {
+                        // Check if this is a user-defined error (success/error return type)
+                        match &error {
+                            SusumuError::UserError { .. } => Err(error), // Propagate user errors
+                            _ => Err(error), // Propagate all other errors
+                        }
+                    }
+                }
+            }
+
+            Expression::DefaultValue {
+                expression,
+                default,
+            } => {
+                // Try to evaluate the expression, use default if it fails
+                match self.evaluate(expression, env) {
+                    Ok(value) => Ok(value),
+                    Err(_) => self.evaluate(default, env), // Use default on any error
+                }
             }
 
             Expression::Annotated {
@@ -482,9 +531,35 @@ impl Interpreter {
                 // For now, just evaluate normally - config could control execution behavior
                 self.evaluate(expression, env)
             }
-            Annotation::Parallel => {
-                println!("🏃‍♂️ PARALLEL: Marking expression for parallel execution");
-                // For now, evaluate normally - parallel would be handled in arrow chains
+            Annotation::Parallel(cores) => {
+                match cores {
+                    Some(core_count) => {
+                        println!(
+                            "🏃‍♂️ PARALLEL: Marking expression for parallel execution with {} cores",
+                            core_count
+                        );
+                        #[cfg(feature = "parallel")]
+                        {
+                            // Set rayon thread pool size if parallel feature is enabled
+                            if let Err(e) = rayon::ThreadPoolBuilder::new()
+                                .num_threads(*core_count)
+                                .build_global()
+                            {
+                                println!(
+                                    "⚠️  Warning: Could not set thread pool size to {}: {}",
+                                    core_count, e
+                                );
+                            }
+                        }
+                    }
+                    None => {
+                        println!("🏃‍♂️ PARALLEL: Marking expression for parallel execution with default cores");
+                    }
+                }
+                // CRITICAL FIX: The issue is that @parallel annotation evaluation happens
+                // at the wrong time. For function annotations, we need to preserve the
+                // function call context and parameter binding.
+
                 self.evaluate(expression, env)
             }
             Annotation::Debug(label) => {
@@ -703,10 +778,15 @@ impl Interpreter {
         // Check main condition using arrow result
         let branch_taken = match condition_type {
             ConditionType::Success => !matches!(arrow_result, Value::Null),
+            ConditionType::AllValid => self.evaluate_all_valid_condition(arrow_result)?,
             ConditionType::Custom(condition_name) => {
                 self.evaluate_custom_condition(condition_name, arrow_result)?
             }
             ConditionType::If => self.is_truthy(arrow_result),
+            ConditionType::Expression(expr) => {
+                let condition_result = self.evaluate(expr, env)?;
+                self.is_truthy(&condition_result)
+            }
         };
 
         if branch_taken {
@@ -720,10 +800,15 @@ impl Interpreter {
             for else_if_branch in else_if_branches {
                 let else_if_condition_result = match &else_if_branch.condition_type {
                     ConditionType::Success => !matches!(arrow_result, Value::Null),
+                    ConditionType::AllValid => self.evaluate_all_valid_condition(arrow_result)?,
                     ConditionType::Custom(condition_name) => {
                         self.evaluate_custom_condition(condition_name, arrow_result)?
                     }
                     ConditionType::If => self.is_truthy(arrow_result),
+                    ConditionType::Expression(expr) => {
+                        let condition_result = self.evaluate(expr, env)?;
+                        self.is_truthy(&condition_result)
+                    }
                 };
 
                 if else_if_condition_result {
@@ -807,10 +892,15 @@ impl Interpreter {
         // Check main condition
         let branch_taken = match condition_type {
             ConditionType::Success => !matches!(condition_value, Value::Null),
+            ConditionType::AllValid => self.evaluate_all_valid_condition(&condition_value)?,
             ConditionType::Custom(condition_name) => {
                 self.evaluate_custom_condition(condition_name, &condition_value)?
             }
             ConditionType::If => self.is_truthy(&condition_value),
+            ConditionType::Expression(expr) => {
+                let condition_result = self.evaluate(expr, env)?;
+                self.is_truthy(&condition_result)
+            }
         };
 
         if branch_taken {
@@ -824,10 +914,17 @@ impl Interpreter {
             for else_if_branch in else_if_branches {
                 let else_if_condition_result = match &else_if_branch.condition_type {
                     ConditionType::Success => !matches!(condition_value, Value::Null),
+                    ConditionType::AllValid => {
+                        self.evaluate_all_valid_condition(&condition_value)?
+                    }
                     ConditionType::Custom(condition_name) => {
                         self.evaluate_custom_condition(condition_name, &condition_value)?
                     }
                     ConditionType::If => self.is_truthy(&condition_value),
+                    ConditionType::Expression(expr) => {
+                        let condition_result = self.evaluate(expr, env)?;
+                        self.is_truthy(&condition_result)
+                    }
                 };
 
                 if else_if_condition_result {
@@ -865,6 +962,109 @@ impl Interpreter {
         Ok(result)
     }
 
+    /// Evaluate object mutations with <~ operator
+    fn evaluate_object_mutation(
+        &mut self,
+        target: &Expression,
+        mutations: &[(String, Expression)],
+        env: &Arc<Environment>,
+    ) -> SusumuResult<Value> {
+        // Check if target is a mutable variable identifier
+        if let Expression::Identifier(var_name) = target {
+            // Check if this is a mutable variable
+            if env.is_mutable(var_name).unwrap_or(false) {
+                // In-place mutation for mutable variables
+                let mut target_value = self.evaluate(target, env)?;
+
+                // Ensure target is an object
+                let target_obj = match &mut target_value {
+                    Value::Object(obj) => obj,
+                    _ => {
+                        return Err(SusumuError::runtime_error(
+                            "Object mutation operator <~ can only be used on objects",
+                        ))
+                    }
+                };
+
+                // Apply all mutations
+                for (property_path, value_expr) in mutations {
+                    let new_value = self.evaluate(value_expr, env)?;
+                    self.set_nested_property(target_obj, property_path, new_value)?;
+                }
+
+                // Update the mutable variable in place
+                env.update_mutable(var_name, target_value.clone())?;
+                return Ok(target_value);
+            }
+        }
+
+        // Default behavior: create new object (for immutable variables or complex expressions)
+        let mut target_value = self.evaluate(target, env)?;
+
+        // Ensure target is an object
+        let target_obj = match &mut target_value {
+            Value::Object(obj) => obj,
+            _ => {
+                return Err(SusumuError::runtime_error(
+                    "Object mutation operator <~ can only be used on objects",
+                ))
+            }
+        };
+
+        // Apply all mutations
+        for (property_path, value_expr) in mutations {
+            let new_value = self.evaluate(value_expr, env)?;
+            self.set_nested_property(target_obj, property_path, new_value)?;
+        }
+
+        Ok(target_value)
+    }
+
+    /// Set a nested property value using dot notation
+    fn set_nested_property(
+        &self,
+        obj: &mut serde_json::Map<String, Value>,
+        path: &str,
+        value: Value,
+    ) -> SusumuResult<()> {
+        let parts: Vec<&str> = path.split('.').collect();
+
+        if parts.len() == 1 {
+            // Simple property assignment
+            obj.insert(parts[0].to_string(), value);
+            return Ok(());
+        }
+
+        // Navigate to the nested object
+        let mut current = obj;
+        for (i, part) in parts.iter().enumerate() {
+            if i == parts.len() - 1 {
+                // Last part - set the value
+                current.insert(part.to_string(), value);
+                break;
+            } else {
+                // Navigate deeper or create intermediate objects
+                let entry = current
+                    .entry(part.to_string())
+                    .or_insert_with(|| Value::Object(serde_json::Map::new()));
+
+                match entry {
+                    Value::Object(ref mut nested_obj) => {
+                        current = nested_obj;
+                    }
+                    _ => {
+                        return Err(SusumuError::runtime_error(&format!(
+                            "Property '{}' in path '{}' is not an object",
+                            part, path
+                        )));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn evaluate_foreach_with_debugging(
         &mut self,
         variable: &str,
@@ -895,6 +1095,48 @@ impl Interpreter {
                 &format!("{:?}", iterable_value),
             )),
         }
+    }
+
+    fn evaluate_while_with_debugging(
+        &mut self,
+        condition: &Expression,
+        body: &Expression,
+        env: &Arc<Environment>,
+    ) -> SusumuResult<Value> {
+        let mut last_result = Value::Null;
+        let mut iteration_count = 0;
+        const MAX_ITERATIONS: usize = 10000; // Prevent infinite loops
+
+        loop {
+            // Prevent infinite loops
+            if iteration_count >= MAX_ITERATIONS {
+                return Err(SusumuError::runtime_error(
+                    "While loop exceeded maximum iterations (10000). Possible infinite loop.",
+                ));
+            }
+
+            // Evaluate condition
+            let condition_value = self.evaluate(condition, env)?;
+            let should_continue = match condition_value {
+                Value::Bool(b) => b,
+                Value::Number(n) => n.as_f64().unwrap_or(0.0) != 0.0,
+                Value::String(s) => !s.is_empty(),
+                Value::Null => false,
+                Value::Array(ref arr) => !arr.is_empty(),
+                Value::Object(ref obj) => !obj.is_empty(),
+            };
+
+            if !should_continue {
+                break;
+            }
+
+            // Execute body in the same scope to preserve mutable variable changes
+            last_result = self.evaluate(body, env)?;
+
+            iteration_count += 1;
+        }
+
+        Ok(last_result)
     }
 
     fn call_function_with_args(
@@ -1059,13 +1301,21 @@ impl Interpreter {
 
         // Bind parameters to arguments
         for (param, arg) in func_def.params.iter().zip(args.iter()) {
-            func_scope.define(param.clone(), arg.clone());
+            func_scope.define(param.name.clone(), arg.clone());
         }
 
         // Execute function body
         let result = match self.evaluate(&func_def.body, &func_scope) {
             Ok(result) => Ok(result),
             Err(SusumuError::ReturnValue { value }) => Ok(value),
+            Err(SusumuError::SuccessReturn { value }) => {
+                // For functions with typed returns, success returns the value directly
+                Ok(value)
+            }
+            Err(SusumuError::ErrorReturn { value }) => {
+                // For functions with typed returns, error return propagates as user error
+                Err(SusumuError::user_error(value))
+            }
             Err(other) => Err(other),
         };
 
@@ -1086,6 +1336,41 @@ impl Interpreter {
                 // For custom conditions, check if it's a truthy value
                 Ok(self.is_truthy(value))
             }
+        }
+    }
+
+    fn evaluate_all_valid_condition(&self, value: &Value) -> SusumuResult<bool> {
+        match value {
+            Value::Array(values) => {
+                // Check if all values in the array are non-error values
+                // This supports convergent validation where multiple validation functions
+                // are combined and we want to ensure ALL succeed
+                for val in values {
+                    if let Value::Object(obj) = val {
+                        // Check if this is an error object (has type: "error")
+                        if let Some(Value::String(type_str)) = obj.get("type") {
+                            if type_str == "error" {
+                                return Ok(false); // Found an error, allValid is false
+                            }
+                        }
+                    }
+                    // For non-object values, check if they're null (indicating failure)
+                    if matches!(val, Value::Null) {
+                        return Ok(false);
+                    }
+                }
+                Ok(true) // All values are valid
+            }
+            // For single values, check if it's not an error or null
+            Value::Object(obj) => {
+                if let Some(Value::String(type_str)) = obj.get("type") {
+                    Ok(type_str != "error")
+                } else {
+                    Ok(true) // Regular object, consider valid
+                }
+            }
+            Value::Null => Ok(false), // Null is not valid
+            _ => Ok(true),            // Other types (string, number, bool) are valid
         }
     }
 
@@ -1350,6 +1635,87 @@ impl Interpreter {
                     None
                 }
             }
+            Pattern::Comparison {
+                operator,
+                value: expr,
+            } => {
+                // Evaluate the comparison expression in the current environment
+                let comparison_value = match self.evaluate_for_pattern_match(expr, value) {
+                    Ok(val) => val,
+                    Err(_) => return None, // If expression evaluation fails, pattern doesn't match
+                };
+
+                // Perform the comparison based on operator
+                let matches = match (operator.as_str(), value) {
+                    (">", Value::Number(n)) => {
+                        if let Value::Number(compare_val) = comparison_value {
+                            let n_f64 = n.as_f64().unwrap_or(0.0);
+                            let compare_f64 = compare_val.as_f64().unwrap_or(0.0);
+                            n_f64 > compare_f64
+                        } else {
+                            false
+                        }
+                    }
+                    (">=", Value::Number(n)) => {
+                        if let Value::Number(compare_val) = comparison_value {
+                            let n_f64 = n.as_f64().unwrap_or(0.0);
+                            let compare_f64 = compare_val.as_f64().unwrap_or(0.0);
+                            n_f64 >= compare_f64
+                        } else {
+                            false
+                        }
+                    }
+                    ("<", Value::Number(n)) => {
+                        if let Value::Number(compare_val) = comparison_value {
+                            let n_f64 = n.as_f64().unwrap_or(0.0);
+                            let compare_f64 = compare_val.as_f64().unwrap_or(0.0);
+                            n_f64 < compare_f64
+                        } else {
+                            false
+                        }
+                    }
+                    ("<=", Value::Number(n)) => {
+                        if let Value::Number(compare_val) = comparison_value {
+                            let n_f64 = n.as_f64().unwrap_or(0.0);
+                            let compare_f64 = compare_val.as_f64().unwrap_or(0.0);
+                            n_f64 <= compare_f64
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false, // Unsupported comparison type or operator
+                };
+
+                if matches {
+                    Some(bindings)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    fn evaluate_for_pattern_match(
+        &self,
+        expr: &Expression,
+        _context_value: &Value,
+    ) -> SusumuResult<Value> {
+        // For pattern matching, we evaluate expressions in a minimal global context
+        // This is used for comparison patterns like > 100
+        match expr {
+            Expression::Number(n) => Ok(self.create_number_value(*n)),
+            Expression::String(s) => Ok(Value::String(s.clone())),
+            Expression::Boolean(b) => Ok(Value::Bool(*b)),
+            Expression::Null => Ok(Value::Null),
+            Expression::Identifier(name) => {
+                // For pattern matching, identifiers should be resolved from global scope
+                let global_env = self.env_manager.global();
+                global_env.get(name)
+            }
+            // For now, keep it simple - only support literals and identifiers in patterns
+            _ => Err(SusumuError::runtime_error(
+                "Complex expressions not supported in comparison patterns yet",
+            )),
         }
     }
 
@@ -1504,10 +1870,10 @@ mod tests {
         let source = r#"
         main() {
             value = 8
-            value -> i positive {
-                "positive" -> print
+            value -> i value {
+                "has value" -> print
             } e {
-                "not positive" -> print
+                "no value" -> print
             }
         }
         "#;
@@ -1516,6 +1882,9 @@ mod tests {
         let mut interpreter = Interpreter::new();
 
         let result = interpreter.execute(&ast);
+        if let Err(e) = &result {
+            eprintln!("Test failed with error: {:?}", e);
+        }
         assert!(result.is_ok());
     }
 

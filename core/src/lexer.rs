@@ -17,41 +17,47 @@ pub enum TokenType {
     Function,
     Return,
     Error,
+    Success,
+    Mut,
     If,
     Else,
     ForEach,
+    While,
     In,
 
     // Arrows
-    RightArrow, // ->
-    LeftArrow,  // <-
+    RightArrow,    // ->
+    LeftArrow,     // <-
+    MutationArrow, // <~
 
     // Conditional keywords
-    I,  // i (condition)
-    E,  // e (else)
-    Ei, // ei (else if)
+    I,        // i (condition)
+    E,        // e (else)
+    Ei,       // ei (else if)
+    AllValid, // allValid (convergent validation)
     // Pattern matching keywords
     Match, // match
     When,  // when (guard)
     True,  // true
     False, // false
-    Mut,   // mut
 
     // Operators
-    Plus,       // +
-    Minus,      // -
-    Multiply,   // *
-    Divide,     // /
-    Assign,     // =
-    Equal,      // ==
-    NotEqual,   // !=
-    Less,       // <
-    Greater,    // >
-    LessEq,     // <=
-    GreaterEq,  // >=
-    Dot,        // .
-    Underscore, // _
-    At,         // @ (for annotations)
+    Plus,         // +
+    Minus,        // -
+    Multiply,     // *
+    Divide,       // /
+    Assign,       // =
+    Equal,        // ==
+    NotEqual,     // !=
+    Less,         // <
+    Greater,      // >
+    LessEq,       // <=
+    GreaterEq,    // >=
+    Dot,          // .
+    Underscore,   // _
+    At,           // @ (for annotations)
+    Pipe,         // | (for union types)
+    QuestionMark, // ? (for error propagation)
 
     // Punctuation
     LeftParen,    // (
@@ -141,6 +147,9 @@ impl Lexer {
                 if self.peek() == '-' {
                     self.advance();
                     self.add_token(TokenType::LeftArrow, "<-");
+                } else if self.peek() == '~' {
+                    self.advance();
+                    self.add_token(TokenType::MutationArrow, "<~");
                 } else if self.peek() == '=' {
                     self.advance();
                     self.add_token(TokenType::LessEq, "<=");
@@ -189,6 +198,8 @@ impl Lexer {
             '.' => self.add_token(TokenType::Dot, "."),
             '_' => self.add_token(TokenType::Underscore, "_"),
             '@' => self.add_token(TokenType::At, "@"),
+            '|' => self.add_token(TokenType::Pipe, "|"),
+            '?' => self.add_token(TokenType::QuestionMark, "?"),
             '"' => self.string_literal()?,
             c if c.is_ascii_digit() => self.number_literal()?,
             c if c.is_ascii_alphabetic() || c == '_' => self.identifier_or_keyword()?,
@@ -282,19 +293,22 @@ impl Lexer {
             "function" => TokenType::Function,
             "return" => TokenType::Return,
             "error" => TokenType::Error,
+            "success" => TokenType::Success,
+            "mut" => TokenType::Mut,
             "if" => TokenType::If,
             "else" => TokenType::Else,
             "fe" => TokenType::ForEach, // for-each abbreviation
+            "w" => TokenType::While,    // while abbreviation
             "in" => TokenType::In,
             "i" => TokenType::I,
             "e" => TokenType::E,
             "ei" => TokenType::Ei,
+            "allValid" => TokenType::AllValid,
             "match" => TokenType::Match,
             "when" => TokenType::When,
             "true" => TokenType::True,
             "false" => TokenType::False,
             "null" => TokenType::Null,
-            "mut" => TokenType::Mut,
             _ => TokenType::Identifier,
         };
 
@@ -380,7 +394,7 @@ mod tests {
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens[0].token_type, TokenType::I);
-        assert_eq!(tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(tokens[1].token_type, TokenType::Success);
         assert_eq!(tokens[2].token_type, TokenType::LeftBrace);
         // ... more assertions
     }

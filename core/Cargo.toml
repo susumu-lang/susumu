@@ -1,6 +1,6 @@
 [package]
 name = "susumu"
-version = "0.1.9"
+version = "0.2.0"
 edition = "2021"
 authors = ["Susumu Team <team@susumu.dev>"]
 description = "Revolutionary functional language making data flow visible through arrow syntax"
@@ -67,6 +67,7 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "susumu"
 path = "src/main.rs"
+required-features = ["default"]
 
 [[bin]]
 name = "susumu-lsp"

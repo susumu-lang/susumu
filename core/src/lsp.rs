@@ -446,7 +446,7 @@ impl SusumuLanguageServer {
         for function in &ast.functions {
             let info = FunctionInfo {
                 name: function.name.clone(),
-                params: function.params.clone(),
+                params: function.params.iter().map(|p| p.name.clone()).collect(),
                 location: Location {
                     uri: lsp_types::Url::parse(uri).unwrap(),
                     range: Range {
@@ -628,7 +628,15 @@ impl SusumuLanguageServer {
             for function in &ast.functions {
                 let symbol = DocumentSymbol {
                     name: function.name.clone(),
-                    detail: Some(format!("({})", function.params.join(", "))),
+                    detail: Some(format!(
+                        "({})",
+                        function
+                            .params
+                            .iter()
+                            .map(|p| p.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )),
                     kind: SymbolKind::FUNCTION,
                     range: Range {
                         start: Position {

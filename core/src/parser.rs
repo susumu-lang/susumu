@@ -56,6 +56,17 @@ impl Parser {
                 let func = self.function_definition()?;
                 // println!("DEBUG: Parsed function: {}", func.name);
                 program.add_function(func);
+            } else if self.check(&TokenType::At) {
+                // Check if this is an annotated function definition
+                if self.is_annotated_function_definition() {
+                    let func = self.parse_annotated_function_definition()?;
+                    program.add_function(func);
+                } else {
+                    // It's an annotated expression - treat as main expression
+                    let expr = self.expression()?;
+                    program.set_main_expression(expr);
+                    break;
+                }
             } else {
                 // Check if this might be a function definition (identifier followed by parentheses and then brace)
                 if self.check(&TokenType::Identifier)
@@ -78,9 +89,24 @@ impl Parser {
                         lookahead += 1;
                     }
 
-                    // Check if there's a brace after the closing paren (function definition)
-                    let is_function_def = lookahead < self.tokens.len()
-                        && self.tokens[lookahead].token_type == TokenType::LeftBrace;
+                    // Check if there's a brace after the closing paren, possibly with return type
+                    let mut brace_pos = lookahead;
+
+                    // Skip past potential return type annotation (-> ...)
+                    if brace_pos < self.tokens.len()
+                        && self.tokens[brace_pos].token_type == TokenType::RightArrow
+                    {
+                        brace_pos += 1;
+                        // Skip past return type tokens until we find a brace
+                        while brace_pos < self.tokens.len()
+                            && self.tokens[brace_pos].token_type != TokenType::LeftBrace
+                        {
+                            brace_pos += 1;
+                        }
+                    }
+
+                    let is_function_def = brace_pos < self.tokens.len()
+                        && self.tokens[brace_pos].token_type == TokenType::LeftBrace;
 
                     if is_function_def {
                         let func = self.function_definition()?;
@@ -93,13 +119,26 @@ impl Parser {
                         break;
                     }
                 } else {
-                    // Check if this is a variable assignment (identifier = value)
-                    if self.check(&TokenType::Identifier)
-                        && self
-                            .tokens
+                    // Check if this is a variable assignment (identifier = value or mut identifier = value)
+                    let is_assignment = if self.check(&TokenType::Mut) {
+                        // mut identifier = value
+                        self.tokens
+                            .get(self.current + 1)
+                            .map_or(false, |t| t.token_type == TokenType::Identifier)
+                            && self
+                                .tokens
+                                .get(self.current + 2)
+                                .map_or(false, |t| t.token_type == TokenType::Assign)
+                    } else if self.check(&TokenType::Identifier) {
+                        // identifier = value
+                        self.tokens
                             .get(self.current + 1)
                             .map_or(false, |t| t.token_type == TokenType::Assign)
-                    {
+                    } else {
+                        false
+                    };
+
+                    if is_assignment {
                         let assignment = self.assignment_statement()?;
                         // Don't break - allow multiple top-level statements
                         if program.main_expression.is_none() {
@@ -224,22 +263,41 @@ impl Parser {
     }
 
     fn statement_or_expression(&mut self) -> SusumuResult<Expression> {
-        // Check if this is an assignment statement
-        if self.check(&TokenType::Identifier) {
-            // Look ahead to see if next token is '='
-            if self
-                .tokens
+        // Check if this is an assignment statement (identifier = value or mut identifier = value)
+        let is_assignment = if self.check(&TokenType::Mut) {
+            // mut identifier = value
+            self.tokens
+                .get(self.current + 1)
+                .map_or(false, |t| t.token_type == TokenType::Identifier)
+                && self
+                    .tokens
+                    .get(self.current + 2)
+                    .map_or(false, |t| t.token_type == TokenType::Assign)
+        } else if self.check(&TokenType::Identifier) {
+            // identifier = value
+            self.tokens
                 .get(self.current + 1)
                 .map_or(false, |t| t.token_type == TokenType::Assign)
-            {
-                return self.assignment_statement();
-            }
+        } else {
+            false
+        };
+
+        if is_assignment {
+            return self.assignment_statement();
         }
+
         // Otherwise, parse as expression
         self.expression()
     }
 
     fn assignment_statement(&mut self) -> SusumuResult<Expression> {
+        // Check for mut keyword
+        let is_mutable = if self.match_token(&TokenType::Mut) {
+            true
+        } else {
+            false
+        };
+
         let target_name = self
             .consume(&TokenType::Identifier, "Expected variable name")?
             .lexeme
@@ -254,7 +312,7 @@ impl Parser {
         Ok(Expression::Assignment {
             target: target_name,
             value: Box::new(value),
-            mutable: false, // Default to immutable, could be extended with 'mut' keyword
+            mutable: is_mutable,
         })
     }
 
@@ -272,11 +330,22 @@ impl Parser {
         let mut params = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
-                let param = self
+                let param_name = self
                     .consume(&TokenType::Identifier, "Expected parameter name")?
                     .lexeme
                     .clone();
-                params.push(param);
+
+                // Check for type annotation
+                let type_annotation = if self.match_token(&TokenType::Colon) {
+                    Some(self.parse_type_annotation()?)
+                } else {
+                    None
+                };
+
+                params.push(FunctionParam {
+                    name: param_name,
+                    type_annotation,
+                });
 
                 if !self.match_token(&TokenType::Comma) {
                     break;
@@ -285,6 +354,13 @@ impl Parser {
         }
 
         self.consume(&TokenType::RightParen, "Expected ')' after parameters")?;
+
+        // Parse return type annotation
+        let return_type = if self.match_token(&TokenType::RightArrow) {
+            Some(self.parse_return_type()?)
+        } else {
+            None
+        };
         self.consume(&TokenType::LeftBrace, "Expected '{' before function body")?;
 
         self.skip_newlines_and_comments();
@@ -305,7 +381,12 @@ impl Parser {
 
         self.consume(&TokenType::RightBrace, "Expected '}' after function body")?;
 
-        Ok(FunctionDef { name, params, body })
+        Ok(FunctionDef {
+            name,
+            params,
+            return_type,
+            body,
+        })
     }
 
     fn expression(&mut self) -> SusumuResult<Expression> {
@@ -404,7 +485,28 @@ impl Parser {
                     ))
                 }
             }
-            "parallel" => Ok(Annotation::Parallel),
+            "parallel" => {
+                if self.match_token(&TokenType::LeftArrow) {
+                    let value = self.primary()?;
+                    if let Expression::Number(cores) = value {
+                        if cores > 0.0 && cores.fract() == 0.0 {
+                            Ok(Annotation::Parallel(Some(cores as usize)))
+                        } else {
+                            return Err(SusumuError::parser_error(
+                                line,
+                                "Parallel cores must be a positive integer",
+                            ));
+                        }
+                    } else {
+                        return Err(SusumuError::parser_error(
+                            line,
+                            "Expected number after @parallel <-",
+                        ));
+                    }
+                } else {
+                    Ok(Annotation::Parallel(None))
+                }
+            }
             "debug" => {
                 if self.match_token(&TokenType::LeftArrow) {
                     let value = self.primary()?;
@@ -457,18 +559,27 @@ impl Parser {
         let mut expr = self.arrow_chain()?;
 
         if self.match_token(&TokenType::I) {
-            let condition_type = if self.check(&TokenType::Identifier) {
+            // Check for special keywords first, then fall back to expressions
+            let condition_type = if self.check(&TokenType::Success) {
+                self.advance(); // consume 'success'
+                ConditionType::Success
+            } else if self.check(&TokenType::AllValid) {
+                self.advance(); // consume 'allValid'
+                ConditionType::AllValid
+            } else if self.check(&TokenType::True) {
+                self.advance(); // consume 'true'
+                ConditionType::Custom("true".to_string())
+            } else if self.check(&TokenType::False) {
+                self.advance(); // consume 'false'
+                ConditionType::Custom("false".to_string())
+            } else if self.check(&TokenType::Identifier) && self.peek().lexeme == "valid" {
+                // Special case for simple identifier conditions
                 let condition_name = self.advance().lexeme.clone();
-                if condition_name == "success" {
-                    ConditionType::Success
-                } else {
-                    ConditionType::Custom(condition_name)
-                }
+                ConditionType::Custom(condition_name)
             } else {
-                return Err(SusumuError::parser_error(
-                    self.peek().line,
-                    "Expected condition name after 'i'",
-                ));
+                // Parse as general expression (for binary expressions)
+                let condition_expr = self.expression()?;
+                ConditionType::Expression(Box::new(condition_expr))
             };
 
             self.consume(&TokenType::LeftBrace, "Expected '{' after condition")?;
@@ -482,18 +593,27 @@ impl Parser {
             // Parse else-if branches
             let mut else_if_branches = Vec::new();
             while self.match_token(&TokenType::Ei) {
-                let else_if_condition_type = if self.check(&TokenType::Identifier) {
+                // Check for special keywords first, then fall back to expressions
+                let else_if_condition_type = if self.check(&TokenType::Success) {
+                    self.advance(); // consume 'success'
+                    ConditionType::Success
+                } else if self.check(&TokenType::AllValid) {
+                    self.advance(); // consume 'allValid'
+                    ConditionType::AllValid
+                } else if self.check(&TokenType::True) {
+                    self.advance(); // consume 'true'
+                    ConditionType::Custom("true".to_string())
+                } else if self.check(&TokenType::False) {
+                    self.advance(); // consume 'false'
+                    ConditionType::Custom("false".to_string())
+                } else if self.check(&TokenType::Identifier) && self.peek().lexeme == "valid" {
+                    // Special case for simple identifier conditions
                     let condition_name = self.advance().lexeme.clone();
-                    if condition_name == "success" {
-                        ConditionType::Success
-                    } else {
-                        ConditionType::Custom(condition_name)
-                    }
+                    ConditionType::Custom(condition_name)
                 } else {
-                    return Err(SusumuError::parser_error(
-                        self.peek().line,
-                        "Expected condition name after 'ei'",
-                    ));
+                    // Parse as general expression (for binary expressions)
+                    let else_if_condition_expr = self.expression()?;
+                    ConditionType::Expression(Box::new(else_if_condition_expr))
                 };
 
                 self.consume(
@@ -556,6 +676,11 @@ impl Parser {
         // Track the current type for visual debugging
         let current_type = SusumuType::Unknown; // Will be inferred
 
+        // Check for mutation arrow first
+        if self.match_token(&TokenType::MutationArrow) {
+            return self.parse_object_mutation(expressions[0].clone());
+        }
+
         while self.match_token(&TokenType::RightArrow) || self.match_token(&TokenType::LeftArrow) {
             let direction = if self.previous().token_type == TokenType::RightArrow {
                 ArrowDirection::Forward
@@ -610,14 +735,30 @@ impl Parser {
     fn postfix(&mut self) -> SusumuResult<Expression> {
         let mut expr = self.binary_op()?;
 
-        // Handle property access: obj.property
-        while self.match_token(&TokenType::Dot) {
-            let property =
-                self.consume(&TokenType::Identifier, "Expected property name after '.'")?;
-            expr = Expression::PropertyAccess {
-                object: Box::new(expr),
-                property: property.lexeme.clone(),
-            };
+        loop {
+            if self.match_token(&TokenType::Dot) {
+                // Handle property access: obj.property
+                let property =
+                    self.consume(&TokenType::Identifier, "Expected property name after '.'")?;
+                expr = Expression::PropertyAccess {
+                    object: Box::new(expr),
+                    property: property.lexeme.clone(),
+                };
+            } else if self.match_token(&TokenType::QuestionMark) {
+                // Handle error propagation: expr?
+                expr = Expression::ErrorPropagation {
+                    expression: Box::new(expr),
+                };
+            } else if self.match_token(&TokenType::Pipe) {
+                // Handle default value: expr | default
+                let default = self.binary_op()?; // Parse right side with same precedence
+                expr = Expression::DefaultValue {
+                    expression: Box::new(expr),
+                    default: Box::new(default),
+                };
+            } else {
+                break;
+            }
         }
 
         Ok(expr)
@@ -695,7 +836,7 @@ impl Parser {
             self.consume(&TokenType::LeftBrace, "Expected '{' after iterable")?;
             self.skip_newlines_and_comments();
 
-            let body = self.expression()?;
+            let body = self.parse_block_content()?;
 
             self.skip_newlines_and_comments();
             self.consume(&TokenType::RightBrace, "Expected '}' after foreach body")?;
@@ -703,6 +844,20 @@ impl Parser {
             Ok(Expression::ForEach {
                 variable,
                 iterable: Box::new(iterable),
+                body: Box::new(body),
+            })
+        } else if self.match_token(&TokenType::While) {
+            let condition = self.expression()?;
+            self.consume(&TokenType::LeftBrace, "Expected '{' after while condition")?;
+            self.skip_newlines_and_comments();
+
+            let body = self.parse_block_content()?;
+
+            self.skip_newlines_and_comments();
+            self.consume(&TokenType::RightBrace, "Expected '}' after while body")?;
+
+            Ok(Expression::While {
+                condition: Box::new(condition),
                 body: Box::new(body),
             })
         } else {
@@ -715,10 +870,14 @@ impl Parser {
             self.consume(&TokenType::LeftArrow, "Expected '<-' after 'return'")?;
             let value = self.expression()?; // Parse full expression, not just primary
             Ok(Expression::Return(Box::new(value)))
+        } else if self.match_token(&TokenType::Success) {
+            self.consume(&TokenType::LeftArrow, "Expected '<-' after 'success'")?;
+            let value = self.expression()?;
+            Ok(Expression::Success(Box::new(value)))
         } else if self.match_token(&TokenType::Error) {
             self.consume(&TokenType::LeftArrow, "Expected '<-' after 'error'")?;
-            let value = self.expression()?; // Parse full expression, not just primary
-            Ok(Expression::Error(Box::new(value)))
+            let value = self.expression()?;
+            Ok(Expression::ErrorReturn(Box::new(value)))
         } else {
             self.primary()
         }
@@ -876,19 +1035,24 @@ impl Parser {
             Ok(Expression::Array(elements))
         } else if self.match_token(&TokenType::I) {
             // Standalone conditional: i condition { ... } ei condition { ... } e { ... }
-            // This handles cases like: i success { ... } when not preceded by an expression
-            let condition_type = if self.check(&TokenType::Identifier) {
+            // Check for special keywords first, then fall back to expressions
+            let condition_type = if self.check(&TokenType::Success) {
+                self.advance(); // consume 'success'
+                ConditionType::Success
+            } else if self.check(&TokenType::True) {
+                self.advance(); // consume 'true'
+                ConditionType::Custom("true".to_string())
+            } else if self.check(&TokenType::False) {
+                self.advance(); // consume 'false'
+                ConditionType::Custom("false".to_string())
+            } else if self.check(&TokenType::Identifier) && self.peek().lexeme == "valid" {
+                // Special case for simple identifier conditions
                 let condition_name = self.advance().lexeme.clone();
-                if condition_name == "success" {
-                    ConditionType::Success
-                } else {
-                    ConditionType::Custom(condition_name)
-                }
+                ConditionType::Custom(condition_name)
             } else {
-                return Err(SusumuError::parser_error(
-                    self.peek().line,
-                    "Expected condition name after 'i'",
-                ));
+                // Parse as general expression (for binary expressions)
+                let condition_expr = self.expression()?;
+                ConditionType::Expression(Box::new(condition_expr))
             };
 
             self.consume(&TokenType::LeftBrace, "Expected '{' after condition")?;
@@ -902,18 +1066,27 @@ impl Parser {
             // Parse else-if branches
             let mut else_if_branches = Vec::new();
             while self.match_token(&TokenType::Ei) {
-                let else_if_condition_type = if self.check(&TokenType::Identifier) {
+                // Check for special keywords first, then fall back to expressions
+                let else_if_condition_type = if self.check(&TokenType::Success) {
+                    self.advance(); // consume 'success'
+                    ConditionType::Success
+                } else if self.check(&TokenType::AllValid) {
+                    self.advance(); // consume 'allValid'
+                    ConditionType::AllValid
+                } else if self.check(&TokenType::True) {
+                    self.advance(); // consume 'true'
+                    ConditionType::Custom("true".to_string())
+                } else if self.check(&TokenType::False) {
+                    self.advance(); // consume 'false'
+                    ConditionType::Custom("false".to_string())
+                } else if self.check(&TokenType::Identifier) && self.peek().lexeme == "valid" {
+                    // Special case for simple identifier conditions
                     let condition_name = self.advance().lexeme.clone();
-                    if condition_name == "success" {
-                        ConditionType::Success
-                    } else {
-                        ConditionType::Custom(condition_name)
-                    }
+                    ConditionType::Custom(condition_name)
                 } else {
-                    return Err(SusumuError::parser_error(
-                        self.peek().line,
-                        "Expected condition name after 'ei'",
-                    ));
+                    // Parse as general expression (for binary expressions)
+                    let else_if_condition_expr = self.expression()?;
+                    ConditionType::Expression(Box::new(else_if_condition_expr))
                 };
 
                 self.consume(
@@ -986,12 +1159,21 @@ impl Parser {
                     ));
                 }
             }
+            ConditionType::AllValid => {
+                // For 'i allValid', the condition should be an array of results from convergent validation
+                // This is primarily used with convergent arrow chains where multiple validation functions
+                // are combined and we want to ensure ALL succeed
+            }
             ConditionType::Custom(_name) => {
                 // Custom conditions - validate against known condition functions
                 // This could be extended with a registry of valid condition functions
             }
             ConditionType::If => {
                 // Traditional if - condition should be boolean-like
+            }
+            ConditionType::Expression(_expr) => {
+                // Expression conditions - validate that the expression evaluates to a boolean-like value
+                // Type checking can be enhanced here if needed
             }
         }
 
@@ -1197,7 +1379,7 @@ impl Parser {
         let mut expressions = Vec::new();
 
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
-            expressions.push(self.expression()?);
+            expressions.push(self.statement_or_expression()?);
             self.skip_newlines_and_comments();
         }
 
@@ -1231,7 +1413,14 @@ impl Parser {
         while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
             let case = self.match_case()?;
             cases.push(case);
+
+            // After each case, ensure we're properly positioned
             self.skip_newlines_and_comments();
+
+            // If we hit the closing brace, we're done
+            if self.check(&TokenType::RightBrace) {
+                break;
+            }
         }
 
         self.consume(&TokenType::RightBrace, "Expected '}' after match cases")?;
@@ -1244,13 +1433,26 @@ impl Parser {
 
         // Optional guard condition
         let guard = if self.match_token(&TokenType::When) {
-            Some(self.expression()?)
+            let guard_expr = self.expression()?;
+            // After parsing guard expression, ensure we're positioned correctly
+            Some(guard_expr)
         } else {
             None
         };
 
+        self.skip_newlines_and_comments(); // Skip newlines before arrow
         self.consume(&TokenType::RightArrow, "Expected '->' after pattern")?;
-        let body = self.expression()?;
+
+        // Support block expressions like conditionals do
+        let body = if self.check(&TokenType::LeftBrace) {
+            self.advance(); // consume '{'
+            self.skip_newlines_and_comments(); // Skip initial newlines and comments
+            let content = self.parse_block_content()?;
+            self.consume(&TokenType::RightBrace, "Expected '}' after match case body")?;
+            content
+        } else {
+            self.expression()?
+        };
 
         Ok(MatchCase {
             pattern,
@@ -1262,6 +1464,29 @@ impl Parser {
     fn pattern(&mut self) -> SusumuResult<Pattern> {
         if self.match_token(&TokenType::Underscore) {
             Ok(Pattern::Wildcard)
+        } else if self.check(&TokenType::Greater)
+            || self.check(&TokenType::GreaterEq)
+            || self.check(&TokenType::Less)
+            || self.check(&TokenType::LessEq)
+        {
+            // Comparison pattern: > 100, >= 50, < 10, <= 5
+            let operator = if self.match_token(&TokenType::Greater) {
+                ">"
+            } else if self.match_token(&TokenType::GreaterEq) {
+                ">="
+            } else if self.match_token(&TokenType::Less) {
+                "<"
+            } else if self.match_token(&TokenType::LessEq) {
+                "<="
+            } else {
+                unreachable!()
+            };
+
+            let value = self.primary()?; // Parse the comparison value (keep it simple)
+            Ok(Pattern::Comparison {
+                operator: operator.to_string(),
+                value: Box::new(value),
+            })
         } else if self.match_token(&TokenType::Identifier)
             || self.match_token(&TokenType::Error)
             || self.match_token(&TokenType::Return)
@@ -1378,6 +1603,145 @@ impl Parser {
     }
 
     // Helper methods
+    fn parse_object_mutation(&mut self, target: Expression) -> SusumuResult<Expression> {
+        // Parse mutation expressions: (prop <- value) <- (prop2 <- value2) ...
+        let mut mutations = Vec::new();
+
+        // Skip newlines after <~
+        self.skip_newlines_and_comments();
+
+        // Parse first mutation (required)
+        self.consume(&TokenType::LeftParen, "Expected '(' after '<~'")?;
+        self.skip_newlines_and_comments();
+
+        // Parse property path (e.g., profile.name)
+        let prop_path = self.parse_property_path()?;
+
+        self.skip_newlines_and_comments();
+        self.consume(&TokenType::LeftArrow, "Expected '<-' in mutation")?;
+        self.skip_newlines_and_comments();
+
+        // Parse new value
+        let value = self.arrow_chain()?;
+
+        self.skip_newlines_and_comments();
+        self.consume(&TokenType::RightParen, "Expected ')' after mutation")?;
+
+        mutations.push((prop_path, value));
+
+        // Parse additional mutations chained with <-
+        while self.match_token(&TokenType::LeftArrow) {
+            self.skip_newlines_and_comments();
+            self.consume(&TokenType::LeftParen, "Expected '(' for chained mutation")?;
+            self.skip_newlines_and_comments();
+
+            let prop_path = self.parse_property_path()?;
+
+            self.skip_newlines_and_comments();
+            self.consume(&TokenType::LeftArrow, "Expected '<-' in mutation")?;
+            self.skip_newlines_and_comments();
+
+            let value = self.arrow_chain()?;
+
+            self.skip_newlines_and_comments();
+            self.consume(&TokenType::RightParen, "Expected ')' after mutation")?;
+
+            mutations.push((prop_path, value));
+        }
+
+        Ok(Expression::ObjectMutation {
+            target: Box::new(target),
+            mutations,
+        })
+    }
+
+    fn parse_property_path(&mut self) -> SusumuResult<String> {
+        // Parse property paths like: profile.name, account.balance, etc.
+        let mut path = self
+            .consume_identifier("Expected property name")?
+            .to_string();
+
+        while self.match_token(&TokenType::Dot) {
+            path.push('.');
+            path.push_str(self.consume_identifier("Expected property name after '.'")?);
+        }
+
+        Ok(path)
+    }
+
+    fn parse_type_annotation(&mut self) -> SusumuResult<TypeAnnotation> {
+        let base_type = self.parse_simple_type()?;
+
+        // Handle union types: Type1 | Type2 | Type3
+        let mut types = vec![base_type];
+        while self.match_token(&TokenType::Pipe) {
+            types.push(self.parse_simple_type()?);
+        }
+
+        if types.len() == 1 {
+            Ok(types.into_iter().next().unwrap())
+        } else {
+            Ok(TypeAnnotation::Union(types))
+        }
+    }
+
+    fn parse_simple_type(&mut self) -> SusumuResult<TypeAnnotation> {
+        let type_name = self.consume_identifier("Expected type name")?.to_string();
+
+        // Check for generic types: Array<string>, Result<T, E>
+        if self.match_token(&TokenType::Less) {
+            let mut generic_args = Vec::new();
+
+            if !self.check(&TokenType::Greater) {
+                loop {
+                    generic_args.push(self.parse_type_annotation()?);
+                    if !self.match_token(&TokenType::Comma) {
+                        break;
+                    }
+                }
+            }
+
+            self.consume(&TokenType::Greater, "Expected '>' after generic arguments")?;
+            Ok(TypeAnnotation::Generic(type_name, generic_args))
+        } else {
+            Ok(TypeAnnotation::Simple(type_name))
+        }
+    }
+
+    fn parse_return_type(&mut self) -> SusumuResult<ReturnType> {
+        // Parse: success: Type, error: Type1 | Type2
+        let mut success_type = None;
+        let mut error_types = Vec::new();
+
+        // Parse the first part - could be 'success:' or 'error:' or just a type
+        if self.check(&TokenType::Success) {
+            self.advance(); // consume 'success'
+            self.consume(&TokenType::Colon, "Expected ':' after 'success'")?;
+            success_type = Some(self.parse_simple_type()?);
+
+            // Check for comma and error type
+            if self.match_token(&TokenType::Comma) {
+                if self.check(&TokenType::Error) {
+                    self.advance(); // consume 'error'
+                    self.consume(&TokenType::Colon, "Expected ':' after 'error'")?;
+                    error_types.push(self.parse_simple_type()?);
+                }
+            }
+        } else if self.check(&TokenType::Error) {
+            self.advance(); // consume 'error'
+            self.consume(&TokenType::Colon, "Expected ':' after 'error'")?;
+            error_types.push(self.parse_simple_type()?);
+        } else {
+            // If no success/error keywords, treat as simple return type
+            success_type = Some(self.parse_simple_type()?);
+        }
+
+        Ok(ReturnType {
+            success_type,
+            error_types,
+        })
+    }
+
     fn expression_to_string(&self, expr: &Expression) -> String {
         match expr {
             Expression::Identifier(name) => name.clone(),
@@ -1540,6 +1904,103 @@ impl Parser {
         } else {
             Err(self.error_with_suggestion(message))
         }
+    }
+
+    /// Check if current position starts an annotated function definition
+    /// Pattern: @annotation_name identifier(params) { body }
+    fn is_annotated_function_definition(&self) -> bool {
+        if !self.check(&TokenType::At) {
+            return false;
+        }
+
+        let mut pos = self.current + 1; // Skip '@'
+
+        // Skip annotation name
+        if pos >= self.tokens.len() || !matches!(self.tokens[pos].token_type, TokenType::Identifier)
+        {
+            return false;
+        }
+        pos += 1;
+
+        // Skip optional annotation parameter (e.g., @parallel <- 4)
+        if pos < self.tokens.len() && self.tokens[pos].token_type == TokenType::LeftArrow {
+            pos += 1; // Skip '<-'
+                      // Skip the parameter value
+            if pos >= self.tokens.len() {
+                return false;
+            }
+            pos += 1;
+        }
+
+        // Skip newlines after annotation
+        while pos < self.tokens.len()
+            && matches!(
+                self.tokens[pos].token_type,
+                TokenType::Newline | TokenType::Comment
+            )
+        {
+            pos += 1;
+        }
+
+        // Check for function definition pattern: identifier(params) { body }
+        if pos >= self.tokens.len() || self.tokens[pos].token_type != TokenType::Identifier {
+            return false;
+        }
+        pos += 1; // Skip function name
+
+        // Check for opening parenthesis
+        if pos >= self.tokens.len() || self.tokens[pos].token_type != TokenType::LeftParen {
+            return false;
+        }
+        pos += 1; // Skip '('
+
+        // Skip to closing parenthesis
+        let mut paren_count = 1;
+        while pos < self.tokens.len() && paren_count > 0 {
+            match self.tokens[pos].token_type {
+                TokenType::LeftParen => paren_count += 1,
+                TokenType::RightParen => paren_count -= 1,
+                _ => {}
+            }
+            pos += 1;
+        }
+
+        if paren_count != 0 {
+            return false; // Unmatched parentheses
+        }
+
+        // Skip potential return type annotation (-> type)
+        if pos < self.tokens.len() && self.tokens[pos].token_type == TokenType::RightArrow {
+            pos += 1; // Skip '->'
+                      // Skip return type tokens until we find a brace
+            while pos < self.tokens.len() && self.tokens[pos].token_type != TokenType::LeftBrace {
+                pos += 1;
+            }
+        }
+
+        // Check for opening brace
+        pos < self.tokens.len() && self.tokens[pos].token_type == TokenType::LeftBrace
+    }
+
+    /// Parse an annotated function definition
+    fn parse_annotated_function_definition(&mut self) -> SusumuResult<FunctionDef> {
+        // Parse the annotation
+        self.consume(&TokenType::At, "Expected '@'")?;
+        let annotation = self.parse_annotation()?;
+
+        // Skip newlines after annotation
+        self.skip_newlines_and_comments();
+
+        // Parse the function definition
+        let mut func_def = self.function_definition()?;
+
+        // Wrap the function body with the annotation
+        func_def.body = Expression::Annotated {
+            annotation,
+            expression: Box::new(func_def.body),
+        };
+
+        Ok(func_def)
     }
 }
 

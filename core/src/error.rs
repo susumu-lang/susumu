@@ -41,6 +41,12 @@ pub enum SusumuError {
     #[error("Return value: {value:?}")]
     ReturnValue { value: serde_json::Value },
 
+    #[error("Success return: {value:?}")]
+    SuccessReturn { value: serde_json::Value },
+
+    #[error("Error return: {value:?}")]
+    ErrorReturn { value: serde_json::Value },
+
     #[error("IO error: {message}")]
     IoError { message: String },
 }
@@ -100,6 +106,14 @@ impl SusumuError {
 
     pub fn return_value(value: serde_json::Value) -> Self {
         Self::ReturnValue { value }
+    }
+
+    pub fn success_return(value: serde_json::Value) -> Self {
+        Self::SuccessReturn { value }
+    }
+
+    pub fn error_return(value: serde_json::Value) -> Self {
+        Self::ErrorReturn { value }
     }
 
     pub fn io_error(message: impl Into<String>) -> Self {

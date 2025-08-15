@@ -7,10 +7,17 @@ use parking_lot::RwLock;
 use serde_json::Value;
 use std::sync::Arc;
 
+/// Variable entry tracking value and mutability
+#[derive(Debug, Clone)]
+pub struct VariableEntry {
+    pub value: Value,
+    pub is_mutable: bool,
+}
+
 /// Thread-safe environment for concurrent arrow processing
 #[derive(Debug, Clone)]
 pub struct Environment {
-    variables: Arc<DashMap<String, Value>>,
+    variables: Arc<DashMap<String, VariableEntry>>,
     functions: Arc<DashMap<String, FunctionDef>>,
     parent: Option<Arc<Environment>>,
 }
@@ -34,9 +41,15 @@ impl Environment {
         }
     }
 
-    /// Define a variable in this environment
+    /// Define a variable in this environment (immutable by default)
     pub fn define(&self, name: String, value: Value) {
-        self.variables.insert(name, value);
+        self.define_with_mutability(name, value, false);
+    }
+
+    /// Define a variable with explicit mutability
+    pub fn define_with_mutability(&self, name: String, value: Value, is_mutable: bool) {
+        let entry = VariableEntry { value, is_mutable };
+        self.variables.insert(name, entry);
     }
 
     /// Define a function in this environment
@@ -46,12 +59,46 @@ impl Environment {
 
     /// Get a variable value, checking parent scopes if needed
     pub fn get(&self, name: &str) -> SusumuResult<Value> {
-        if let Some(value) = self.variables.get(name) {
-            return Ok(value.clone());
+        if let Some(entry) = self.variables.get(name) {
+            return Ok(entry.value.clone());
         }
 
         if let Some(parent) = &self.parent {
             return parent.get(name);
+        }
+
+        Err(SusumuError::undefined_variable(name))
+    }
+
+    /// Check if a variable is mutable
+    pub fn is_mutable(&self, name: &str) -> SusumuResult<bool> {
+        if let Some(entry) = self.variables.get(name) {
+            return Ok(entry.is_mutable);
+        }
+
+        if let Some(parent) = &self.parent {
+            return parent.is_mutable(name);
+        }
+
+        Err(SusumuError::undefined_variable(name))
+    }
+
+    /// Update a mutable variable
+    pub fn update_mutable(&self, name: &str, new_value: Value) -> SusumuResult<()> {
+        if let Some(mut entry) = self.variables.get_mut(name) {
+            if entry.is_mutable {
+                entry.value = new_value;
+                return Ok(());
+            } else {
+                return Err(SusumuError::runtime_error(&format!(
+                    "Cannot mutate immutable variable '{}'",
+                    name
+                )));
+            }
+        }
+
+        if let Some(parent) = &self.parent {
+            return parent.update_mutable(name, new_value);
         }
 
         Err(SusumuError::undefined_variable(name))
@@ -70,18 +117,10 @@ impl Environment {
         Err(SusumuError::undefined_function(name))
     }
 
-    /// Set a variable value (for updates)
+    /// Set a variable value (for updates, checking mutability)
     pub fn set(&self, name: &str, value: Value) -> SusumuResult<()> {
-        if self.variables.contains_key(name) {
-            self.variables.insert(name.to_string(), value);
-            return Ok(());
-        }
-
-        if let Some(parent) = &self.parent {
-            return parent.set(name, value);
-        }
-
-        Err(SusumuError::undefined_variable(name))
+        // Use update_mutable which already handles mutability checks
+        self.update_mutable(name, value)
     }
 
     /// Check if a variable exists in this environment or parent scopes

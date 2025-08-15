@@ -17,8 +17,28 @@ pub enum Statement {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FunctionDef {
     pub name: String,
-    pub params: Vec<String>,
+    pub params: Vec<FunctionParam>,
+    pub return_type: Option<ReturnType>,
     pub body: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FunctionParam {
+    pub name: String,
+    pub type_annotation: Option<TypeAnnotation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReturnType {
+    pub success_type: Option<TypeAnnotation>,
+    pub error_types: Vec<TypeAnnotation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TypeAnnotation {
+    Simple(String),                       // string, number, bool
+    Generic(String, Vec<TypeAnnotation>), // Array<string>, Result<T, E>
+    Union(Vec<TypeAnnotation>),           // string | number | null
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -36,6 +56,12 @@ pub enum Expression {
     Tuple(Vec<Expression>),
     Object(Vec<(String, Expression)>),
     Array(Vec<Expression>),
+
+    // Object mutation
+    ObjectMutation {
+        target: Box<Expression>,
+        mutations: Vec<(String, Expression)>, // (property_path, new_value)
+    },
 
     // Core arrow-flow constructs
     ArrowChain {
@@ -61,11 +87,17 @@ pub enum Expression {
     // Flow control statements
     Return(Box<Expression>),
     Error(Box<Expression>),
+    Success(Box<Expression>),
+    ErrorReturn(Box<Expression>),
 
     // Iteration
     ForEach {
         variable: String,
         iterable: Box<Expression>,
+        body: Box<Expression>,
+    },
+    While {
+        condition: Box<Expression>,
         body: Box<Expression>,
     },
 
@@ -112,6 +144,17 @@ pub enum Expression {
         annotation: Annotation,
         expression: Box<Expression>,
     },
+
+    // Error propagation (? operator)
+    ErrorPropagation {
+        expression: Box<Expression>,
+    },
+
+    // Default value (| operator)
+    DefaultValue {
+        expression: Box<Expression>,
+        default: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -138,6 +181,10 @@ pub enum Pattern {
     ArrowPattern {
         constructor: String, // "some", "none", "success", "error"
         arg: Box<Pattern>,
+    },
+    Comparison {
+        operator: String, // ">", ">=", "<", "<="
+        value: Box<Expression>,
     },
 }
 
@@ -171,9 +218,11 @@ pub enum ArrowDirection {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ConditionType {
-    If,             // Traditional if condition
-    Success,        // i success { ... } e { ... }
-    Custom(String), // i customCondition { ... } e { ... }
+    If,                          // Traditional if condition
+    Success,                     // i success { ... } e { ... }
+    AllValid,                    // i allValid { ... } e { ... } (convergent validation)
+    Custom(String),              // i customCondition { ... } e { ... }
+    Expression(Box<Expression>), // i expr > value { ... } e { ... }
 }
 
 impl Program {
@@ -275,7 +324,7 @@ pub enum Annotation {
     Trace(String),             // @trace <- "payment-flow"
     Monitor(Vec<String>),      // @monitor <- ["latency", "errors"]
     Config(serde_json::Value), // @config <- {trace: "payment-flow", timeout: "30s"}
-    Parallel,                  // @parallel
+    Parallel(Option<usize>),   // @parallel or @parallel <- 4 (number of cores)
     Debug(Option<String>),     // @debug or @debug <- "checkpoint"
 }
 
